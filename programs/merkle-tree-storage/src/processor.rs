@@ -2,13 +2,13 @@ use borsh::BorshDeserialize;
 use solana_program::program::invoke_signed;
 use solana_program::program_error::ProgramError;
 use solana_program::{
-    account_info::AccountInfo, entrypoint::ProgramResult, msg, program::invoke, pubkey::Pubkey,
+    account_info::AccountInfo, entrypoint::ProgramResult, msg, pubkey::Pubkey,
     rent::Rent, system_instruction, system_program, sysvar::Sysvar,
 };
 
 use crate::error::MerkleTreeStorageError;
 use crate::instruction::accounts::CreateAccounts;
-use crate::instruction::CreatePDAinstruction;
+use crate::instruction::{InsertLeafArgs, MerkleTreeInstruction};
 use crate::state::MerkleTree;
 
 pub fn process_instruction<'a>(
@@ -16,14 +16,23 @@ pub fn process_instruction<'a>(
     accounts: &'a [AccountInfo<'a>],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    let instruction: CreatePDAinstruction =
-        CreatePDAinstruction::try_from_slice(instruction_data)?;
+    let instruction: MerkleTreeInstruction =
+        MerkleTreeInstruction::try_from_slice(instruction_data)?;
     match instruction {
-        CreatePDAinstruction::Create() => {
+        MerkleTreeInstruction::Create() => {
             msg!("Instruction: Create");
             create(program_id, accounts)
+        },
+        MerkleTreeInstruction::InsertLeaf(insert_leaf_args) => {
+            msg!("Instruction: InsertLeaf");
+            insert_leaf(program_id, accounts, insert_leaf_args)
         }
     }
+}
+
+fn insert_leaf<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>], insert_leaf_args: InsertLeafArgs) -> ProgramResult {
+    msg!("Mock insert leaf");
+    Ok(())
 }
 
 fn create<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>]) -> ProgramResult {

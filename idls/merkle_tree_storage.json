@@ -43,6 +43,39 @@
         "type": "u8",
         "value": 0
       }
+    },
+    {
+      "name": "InsertLeaf",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "The account paying for the storage fees"
+          ]
+        },
+        {
+          "name": "tree",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "The address of the new account"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "insertLeafArgs",
+          "type": {
+            "defined": "InsertLeafArgs"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 1
+      }
     }
   ],
   "accounts": [
@@ -65,6 +98,25 @@
           {
             "name": "nextLeafIndex",
             "type": "u8"
+          }
+        ]
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "InsertLeafArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "leaf",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
           }
         ]
       }
