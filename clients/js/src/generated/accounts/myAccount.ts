@@ -126,8 +126,8 @@ export function getMyAccountGpaBuilder(
   context: Pick<Context, 'rpc' | 'programs'>
 ) {
   const programId = context.programs.getPublicKey(
-    'mplProjectName',
-    'MyProgram1111111111111111111111111111111111'
+    'merkleTreeStorage',
+    'TREEZwpvqQN6HVAAPjqhJAr8BuoGhXSx34jm9YV5DPB'
   );
   return gpaBuilder(context, programId)
     .registerFields<{ key: KeyArgs; authority: PublicKey; data: MyDataArgs }>({

@@ -7,10 +7,10 @@ const programDir = path.join(__dirname, "..", "programs");
 
 generateIdl({
   generator: "shank",
-  programName: "mpl_project_name_program",
-  programId: "MyProgram1111111111111111111111111111111111",
+  programName: "merkle_tree_storage_program",
+  programId: "TREEZwpvqQN6HVAAPjqhJAr8BuoGhXSx34jm9YV5DPB",
   idlDir,
-  idlName: "mpl_project_name",
+  idlName: "merkle_tree_storage",
   binaryInstallDir,
-  programDir: path.join(programDir, "mpl-project-name"),
+  programDir: path.join(programDir, "merkle-tree-storage"),
 });

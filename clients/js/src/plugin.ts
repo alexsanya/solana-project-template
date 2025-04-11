@@ -1,8 +1,8 @@
 import { UmiPlugin } from '@metaplex-foundation/umi';
-import { createMplProjectNameProgram } from './generated';
+import { createMerkleTreeStorageProgram } from './generated';
 
-export const mplProjectName = (): UmiPlugin => ({
+export const merkleTreeStorage = (): UmiPlugin => ({
   install(umi) {
-    umi.programs.add(createMplProjectNameProgram(), false);
+    umi.programs.add(createMerkleTreeStorageProgram(), false);
   },
 });

@@ -1,7 +1,7 @@
 #![cfg(feature = "test-sbf")]
 
 use borsh::BorshDeserialize;
-use mpl_project_name::{accounts::MyAccount, instructions::CreateBuilder};
+use merkle_tree_storage::{accounts::MyAccount, instructions::CreateBuilder};
 use solana_program_test::{tokio, ProgramTest};
 use solana_sdk::{
     signature::{Keypair, Signer},
@@ -10,7 +10,7 @@ use solana_sdk::{
 
 #[tokio::test]
 async fn create() {
-    let mut context = ProgramTest::new("mpl_project_name_program", mpl_project_name::ID, None)
+    let mut context = ProgramTest::new("merkle_tree_storage_program", merkle_tree_storage::ID, None)
         .start_with_context()
         .await;
 

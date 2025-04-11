@@ -1,6 +1,6 @@
-# Mpl Project Name
+# Merkle Tree Storage
 
-My project description
+On-chain implementation of Merkle Tree
 
 ## Building
 

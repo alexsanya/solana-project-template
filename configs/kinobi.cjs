@@ -11,7 +11,7 @@ const kinobi = k.createFromIdls([path.join(idlDir, "mpl_core.json")]);
 // Update programs.
 kinobi.update(
   new k.updateProgramsVisitor({
-    mplProjectNameProgram: { name: "mplProjectName" },
+    merkleTreeStorageProgram: { name: "merkleTreeStorage" },
   })
 );
 

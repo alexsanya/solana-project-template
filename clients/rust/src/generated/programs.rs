@@ -7,5 +7,5 @@
 
 use solana_program::{pubkey, pubkey::Pubkey};
 
-/// `mpl_project_name` program ID.
-pub const MPL_PROJECT_NAME_ID: Pubkey = pubkey!("MyProgram1111111111111111111111111111111111");
+/// `merkle_tree_storage` program ID.
+pub const MERKLE_TREE_STORAGE_ID: Pubkey = pubkey!("TREEZwpvqQN6HVAAPjqhJAr8BuoGhXSx34jm9YV5DPB");

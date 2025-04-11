@@ -1,4 +1,4 @@
-# JavaScript client for Mpl Project Name
+# JavaScript client for Merkle Tree Storage
 
 A Umi-compatible JavaScript library for the project.
 
@@ -7,15 +7,15 @@ A Umi-compatible JavaScript library for the project.
 1. First, if you're not already using Umi, [follow these instructions to install the Umi framework](https://github.com/metaplex-foundation/umi/blob/main/docs/installation.md).
 2. Next, install this library using the package manager of your choice.
    ```sh
-   npm install @metaplex-foundation/mpl-project-name
+   npm install @metaplex-foundation/merkle-tree-storage
    ```
 2. Finally, register the library with your Umi instance like so.
    ```ts
-   import { mplProjectName } from '@metaplex-foundation/mpl-project-name';
-   umi.use(mplProjectName());
+   import { merkleTreeStorage } from '@metaplex-foundation/merkle-tree-storage';
+   umi.use(merkleTreeStorage());
    ```
 
-You can learn more about this library's API by reading its generated [TypeDoc documentation](https://mpl-project-name-js-docs.vercel.app).
+You can learn more about this library's API by reading its generated [TypeDoc documentation](https://merkle-tree-storage-js-docs.vercel.app).
 
 ## Setting up Benchmarks
 The GitHub workflow will automatically run benchmarks on pushes to the `main` branch, however it needs a gh-pages branch to deploy the hosted graph website to. Run the commands below to setup the gh-pages branch.

@@ -2073,7 +2073,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mpl-project-name"
+name = "merkle-tree-storage"
 version = "0.1.0"
 dependencies = [
  "assert_matches",
@@ -2089,7 +2089,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mpl-project-name-program"
+name = "merkle-tree-storage-program"
 version = "0.1.0"
 dependencies = [
  "borsh 0.10.3",

@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "name": "mpl_project_name_program",
+  "name": "merkle_tree_storage_program",
   "instructions": [
     {
       "name": "Create",
@@ -166,7 +166,7 @@
   ],
   "metadata": {
     "origin": "shank",
-    "address": "MyProgram1111111111111111111111111111111111",
+    "address": "TREEZwpvqQN6HVAAPjqhJAr8BuoGhXSx34jm9YV5DPB",
     "binaryVersion": "0.3.0",
     "libVersion": "0.3.0"
   }
