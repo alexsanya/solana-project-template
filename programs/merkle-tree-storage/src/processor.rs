@@ -6,25 +6,25 @@ use solana_program::{
 
 use crate::error::MerkleTreeStorageError;
 use crate::instruction::accounts::CreateAccounts;
-use crate::instruction::{CreateArgs, MerkleTreeStorageInstruction};
-use crate::state::{Key, MyAccount, MyData};
+use crate::instruction::CreatePDAinstruction;
+use crate::state::MerkleTree;
 
 pub fn process_instruction<'a>(
     _program_id: &Pubkey,
     accounts: &'a [AccountInfo<'a>],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    let instruction: MerkleTreeStorageInstruction =
-        MerkleTreeStorageInstruction::try_from_slice(instruction_data)?;
+    let instruction: CreatePDAinstruction =
+        CreatePDAinstruction::try_from_slice(instruction_data)?;
     match instruction {
-        MerkleTreeStorageInstruction::Create(args) => {
+        CreatePDAinstruction::Create() => {
             msg!("Instruction: Create");
-            create(accounts, args)
+            create(accounts)
         }
     }
 }
 
-fn create<'a>(accounts: &'a [AccountInfo<'a>], args: CreateArgs) -> ProgramResult {
+fn create<'a>(accounts: &'a [AccountInfo<'a>]) -> ProgramResult {
     // Accounts.
     let ctx = CreateAccounts::context(accounts)?;
     let rent = Rent::get()?;
@@ -35,33 +35,25 @@ fn create<'a>(accounts: &'a [AccountInfo<'a>], args: CreateArgs) -> ProgramResul
     }
 
     // Fetch the space and minimum lamports required for rent exemption.
-    let space: usize = MyAccount::LEN;
+    let space: usize = MerkleTree::TREE_SIZE_BYTES;
     let lamports: u64 = rent.minimum_balance(space);
 
     // CPI to the System Program.
     invoke(
         &system_instruction::create_account(
             ctx.accounts.payer.key,
-            ctx.accounts.address.key,
+            ctx.accounts.tree.key,
             lamports,
             space as u64,
             &crate::id(),
         ),
         &[
             ctx.accounts.payer.clone(),
-            ctx.accounts.address.clone(),
+            ctx.accounts.tree.clone(),
             ctx.accounts.system_program.clone(),
         ],
     )?;
 
-    let my_account = MyAccount {
-        key: Key::MyAccount,
-        authority: *ctx.accounts.authority.key,
-        data: MyData {
-            field1: args.arg1,
-            field2: args.arg2,
-        },
-    };
-
-    my_account.save(ctx.accounts.address)
+    msg!("Merkle tree PDA initialized");
+    Ok(())
 }

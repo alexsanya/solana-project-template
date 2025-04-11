@@ -4,31 +4,25 @@ use solana_program::account_info::AccountInfo;
 use solana_program::entrypoint::ProgramResult;
 use solana_program::msg;
 use solana_program::program_error::ProgramError;
-use solana_program::pubkey::Pubkey;
 
 use crate::error::MerkleTreeStorageError;
 
-#[derive(Clone, BorshSerialize, BorshDeserialize, Debug)]
-pub enum Key {
-    Uninitialized,
-    MyAccount,
-    MyPdaAccount,
-}
+const MAX_DEPTH: usize = 3; // Tree with 8 leaves max
+const TREE_SIZE: usize = (1 << (MAX_DEPTH + 1)) - 1; // 15 nodes
 
 #[repr(C)]
 #[derive(Clone, BorshSerialize, BorshDeserialize, Debug, ShankAccount)]
-pub struct MyAccount {
-    pub key: Key,
-    pub authority: Pubkey,
-    pub data: MyData,
+pub struct MerkleTree {
+    pub nodes: Vec<[u8; 32]>,
+    pub next_leaf_index: u8, // index of the next free leaf
 }
 
-impl MyAccount {
-    pub const LEN: usize = 1 + 32 + MyData::LEN;
+impl MerkleTree {
+    pub const TREE_SIZE_BYTES: usize = TREE_SIZE * 32 + 1; // bytes for all nodes + 1 byte for next_leaf_index
 
     pub fn load(account: &AccountInfo) -> Result<Self, ProgramError> {
         let mut bytes: &[u8] = &(*account.data).borrow();
-        MyAccount::deserialize(&mut bytes).map_err(|error| {
+        MerkleTree::deserialize(&mut bytes).map_err(|error| {
             msg!("Error: {}", error);
             MerkleTreeStorageError::DeserializationError.into()
         })
@@ -40,21 +34,4 @@ impl MyAccount {
             MerkleTreeStorageError::SerializationError.into()
         })
     }
-}
-
-#[repr(C)]
-#[derive(Clone, BorshSerialize, BorshDeserialize, Debug, ShankAccount)]
-pub struct MyPdaAccount {
-    pub key: Key,
-    pub bump: u8,
-}
-
-#[derive(Clone, BorshSerialize, BorshDeserialize, Debug)]
-pub struct MyData {
-    pub field1: u16,
-    pub field2: u32,
-}
-
-impl MyData {
-    pub const LEN: usize = 2 + 4;
 }
