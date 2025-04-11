@@ -1,4 +1,6 @@
 use borsh::BorshDeserialize;
+use solana_program::program::invoke_signed;
+use solana_program::program_error::ProgramError;
 use solana_program::{
     account_info::AccountInfo, entrypoint::ProgramResult, msg, program::invoke, pubkey::Pubkey,
     rent::Rent, system_instruction, system_program, sysvar::Sysvar,
@@ -10,7 +12,7 @@ use crate::instruction::CreatePDAinstruction;
 use crate::state::MerkleTree;
 
 pub fn process_instruction<'a>(
-    _program_id: &Pubkey,
+    program_id: &Pubkey,
     accounts: &'a [AccountInfo<'a>],
     instruction_data: &[u8],
 ) -> ProgramResult {
@@ -19,12 +21,12 @@ pub fn process_instruction<'a>(
     match instruction {
         CreatePDAinstruction::Create() => {
             msg!("Instruction: Create");
-            create(accounts)
+            create(program_id, accounts)
         }
     }
 }
 
-fn create<'a>(accounts: &'a [AccountInfo<'a>]) -> ProgramResult {
+fn create<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>]) -> ProgramResult {
     // Accounts.
     let ctx = CreateAccounts::context(accounts)?;
     let rent = Rent::get()?;
@@ -37,9 +39,14 @@ fn create<'a>(accounts: &'a [AccountInfo<'a>]) -> ProgramResult {
     // Fetch the space and minimum lamports required for rent exemption.
     let space: usize = MerkleTree::TREE_SIZE_BYTES;
     let lamports: u64 = rent.minimum_balance(space);
+    let (expected_pda, bump) = Pubkey::find_program_address(&[b"tree", ctx.accounts.payer.key.as_ref()], program_id);
+    if &expected_pda != ctx.accounts.tree.key {
+        msg!("Invalid PDA provided");
+        return Err(ProgramError::InvalidArgument);
+    }
 
     // CPI to the System Program.
-    invoke(
+    invoke_signed(
         &system_instruction::create_account(
             ctx.accounts.payer.key,
             ctx.accounts.tree.key,
@@ -52,6 +59,7 @@ fn create<'a>(accounts: &'a [AccountInfo<'a>]) -> ProgramResult {
             ctx.accounts.tree.clone(),
             ctx.accounts.system_program.clone(),
         ],
+        &[&[b"tree", ctx.accounts.payer.key.as_ref(), &[bump]]],
     )?;
 
     msg!("Merkle tree PDA initialized");

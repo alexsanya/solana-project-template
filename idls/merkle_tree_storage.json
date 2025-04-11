@@ -1,0 +1,96 @@
+{
+  "version": "0.1.0",
+  "name": "merkle_tree_storage_program",
+  "instructions": [
+    {
+      "name": "Create",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "The account paying for the storage fees"
+          ]
+        },
+        {
+          "name": "tree",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "The address of the new account"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "The system program"
+          ]
+        },
+        {
+          "name": "sysvarRent",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Sysvar rent account"
+          ]
+        }
+      ],
+      "args": [],
+      "discriminant": {
+        "type": "u8",
+        "value": 0
+      }
+    }
+  ],
+  "accounts": [
+    {
+      "name": "MerkleTree",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "nodes",
+            "type": {
+              "vec": {
+                "array": [
+                  "u8",
+                  32
+                ]
+              }
+            }
+          },
+          {
+            "name": "nextLeafIndex",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ],
+  "errors": [
+    {
+      "code": 0,
+      "name": "InvalidSystemProgram",
+      "msg": "Invalid System Program"
+    },
+    {
+      "code": 1,
+      "name": "DeserializationError",
+      "msg": "Error deserializing account"
+    },
+    {
+      "code": 2,
+      "name": "SerializationError",
+      "msg": "Error serializing account"
+    }
+  ],
+  "metadata": {
+    "origin": "shank",
+    "address": "TREEZwpvqQN6HVAAPjqhJAr8BuoGhXSx34jm9YV5DPB",
+    "binaryVersion": "0.4.2",
+    "libVersion": "0.4.2"
+  }
+}

@@ -13,14 +13,13 @@ import {
   PublicKey,
   Signer,
   TransactionBuilder,
+  publicKey,
   transactionBuilder,
 } from '@metaplex-foundation/umi';
 import {
   Serializer,
   mapSerializer,
   struct,
-  u16,
-  u32,
   u8,
 } from '@metaplex-foundation/umi/serializers';
 import { getMyAccountSize } from '../accounts';
@@ -32,49 +31,37 @@ import {
 
 // Accounts.
 export type CreateInstructionAccounts = {
-  /** The address of the new account */
-  address: Signer;
-  /** The authority of the new account */
-  authority?: PublicKey | Pda;
   /** The account paying for the storage fees */
   payer?: Signer;
+  /** The address of the new account */
+  tree: PublicKey | Pda;
   /** The system program */
   systemProgram?: PublicKey | Pda;
+  /** Sysvar rent account */
+  sysvarRent?: PublicKey | Pda;
 };
 
 // Data.
-export type CreateInstructionData = {
-  discriminator: number;
-  arg1: number;
-  arg2: number;
-};
+export type CreateInstructionData = { discriminator: number };
 
-export type CreateInstructionDataArgs = { arg1: number; arg2: number };
+export type CreateInstructionDataArgs = {};
 
 export function getCreateInstructionDataSerializer(): Serializer<
   CreateInstructionDataArgs,
   CreateInstructionData
 > {
   return mapSerializer<CreateInstructionDataArgs, any, CreateInstructionData>(
-    struct<CreateInstructionData>(
-      [
-        ['discriminator', u8()],
-        ['arg1', u16()],
-        ['arg2', u32()],
-      ],
-      { description: 'CreateInstructionData' }
-    ),
+    struct<CreateInstructionData>([['discriminator', u8()]], {
+      description: 'CreateInstructionData',
+    }),
     (value) => ({ ...value, discriminator: 0 })
   ) as Serializer<CreateInstructionDataArgs, CreateInstructionData>;
 }
 
-// Args.
-export type CreateInstructionArgs = CreateInstructionDataArgs;
-
 // Instruction.
 export function create(
-  context: Pick<Context, 'identity' | 'payer' | 'programs'>,
-  input: CreateInstructionAccounts & CreateInstructionArgs
+  context: Pick<Context, 'payer' | 'programs'>,
+  input: CreateInstructionAccounts
 ): TransactionBuilder {
   // Program ID.
   const programId = context.programs.getPublicKey(
@@ -84,35 +71,25 @@ export function create(
 
   // Accounts.
   const resolvedAccounts = {
-    address: {
-      index: 0,
-      isWritable: true as boolean,
-      value: input.address ?? null,
-    },
-    authority: {
-      index: 1,
-      isWritable: false as boolean,
-      value: input.authority ?? null,
-    },
     payer: {
-      index: 2,
+      index: 0,
       isWritable: true as boolean,
       value: input.payer ?? null,
     },
+    tree: { index: 1, isWritable: true as boolean, value: input.tree ?? null },
     systemProgram: {
-      index: 3,
+      index: 2,
       isWritable: false as boolean,
       value: input.systemProgram ?? null,
     },
+    sysvarRent: {
+      index: 3,
+      isWritable: false as boolean,
+      value: input.sysvarRent ?? null,
+    },
   } satisfies ResolvedAccountsWithIndices;
 
-  // Arguments.
-  const resolvedArgs: CreateInstructionArgs = { ...input };
-
   // Default values.
-  if (!resolvedAccounts.authority.value) {
-    resolvedAccounts.authority.value = context.identity.publicKey;
-  }
   if (!resolvedAccounts.payer.value) {
     resolvedAccounts.payer.value = context.payer;
   }
@@ -122,6 +99,11 @@ export function create(
       '11111111111111111111111111111111'
     );
     resolvedAccounts.systemProgram.isWritable = false;
+  }
+  if (!resolvedAccounts.sysvarRent.value) {
+    resolvedAccounts.sysvarRent.value = publicKey(
+      'SysvarRent111111111111111111111111111111111'
+    );
   }
 
   // Accounts in order.
@@ -137,9 +119,7 @@ export function create(
   );
 
   // Data.
-  const data = getCreateInstructionDataSerializer().serialize(
-    resolvedArgs as CreateInstructionDataArgs
-  );
+  const data = getCreateInstructionDataSerializer().serialize({});
 
   // Bytes Created On Chain.
   const bytesCreatedOnChain = getMyAccountSize() + ACCOUNT_HEADER_SIZE;

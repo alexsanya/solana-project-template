@@ -5,8 +5,6 @@
 //! [https://github.com/metaplex-foundation/kinobi]
 //!
 
-pub(crate) mod r#my_account;
-pub(crate) mod r#my_pda_account;
+pub(crate) mod r#merkle_tree;
 
-pub use self::r#my_account::*;
-pub use self::r#my_pda_account::*;
+pub use self::r#merkle_tree::*;

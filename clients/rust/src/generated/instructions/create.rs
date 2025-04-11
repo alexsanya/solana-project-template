@@ -5,54 +5,49 @@
 //! [https://github.com/metaplex-foundation/kinobi]
 //!
 
-use borsh::BorshDeserialize;
-use borsh::BorshSerialize;
+#[cfg(feature = "anchor")]
+use anchor_lang::prelude::{AnchorDeserialize, AnchorSerialize};
+#[cfg(not(feature = "anchor"))]
+use borsh::{BorshDeserialize, BorshSerialize};
 
 /// Accounts.
 pub struct Create {
-    /// The address of the new account
-    pub address: solana_program::pubkey::Pubkey,
-    /// The authority of the new account
-    pub authority: solana_program::pubkey::Pubkey,
     /// The account paying for the storage fees
     pub payer: solana_program::pubkey::Pubkey,
+    /// The address of the new account
+    pub tree: solana_program::pubkey::Pubkey,
     /// The system program
     pub system_program: solana_program::pubkey::Pubkey,
+    /// Sysvar rent account
+    pub sysvar_rent: solana_program::pubkey::Pubkey,
 }
 
 impl Create {
-    pub fn instruction(
-        &self,
-        args: CreateInstructionArgs,
-    ) -> solana_program::instruction::Instruction {
-        self.instruction_with_remaining_accounts(args, &[])
+    pub fn instruction(&self) -> solana_program::instruction::Instruction {
+        self.instruction_with_remaining_accounts(&[])
     }
     #[allow(clippy::vec_init_then_push)]
     pub fn instruction_with_remaining_accounts(
         &self,
-        args: CreateInstructionArgs,
         remaining_accounts: &[solana_program::instruction::AccountMeta],
     ) -> solana_program::instruction::Instruction {
         let mut accounts = Vec::with_capacity(4 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new(
-            self.address,
-            true,
-        ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
-            self.authority,
-            false,
+            self.payer, true,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new(
-            self.payer, true,
+            self.tree, false,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             self.system_program,
             false,
         ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            self.sysvar_rent,
+            false,
+        ));
         accounts.extend_from_slice(remaining_accounts);
-        let mut data = CreateInstructionData::new().try_to_vec().unwrap();
-        let mut args = args.try_to_vec().unwrap();
-        data.append(&mut args);
+        let data = CreateInstructionData::new().try_to_vec().unwrap();
 
         solana_program::instruction::Instruction {
             program_id: crate::MERKLE_TREE_STORAGE_ID,
@@ -62,40 +57,32 @@ impl Create {
     }
 }
 
-#[derive(BorshDeserialize, BorshSerialize)]
-struct CreateInstructionData {
+#[cfg_attr(not(feature = "anchor"), derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(feature = "anchor", derive(AnchorSerialize, AnchorDeserialize))]
+pub struct CreateInstructionData {
     discriminator: u8,
 }
 
 impl CreateInstructionData {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self { discriminator: 0 }
     }
-}
-
-#[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct CreateInstructionArgs {
-    pub arg1: u16,
-    pub arg2: u32,
 }
 
 /// Instruction builder for `Create`.
 ///
 /// ### Accounts:
 ///
-///   0. `[writable, signer]` address
-///   1. `[]` authority
-///   2. `[writable, signer]` payer
-///   3. `[optional]` system_program (default to `11111111111111111111111111111111`)
+///   0. `[writable, signer]` payer
+///   1. `[writable]` tree
+///   2. `[optional]` system_program (default to `11111111111111111111111111111111`)
+///   3. `[optional]` sysvar_rent (default to `SysvarRent111111111111111111111111111111111`)
 #[derive(Default)]
 pub struct CreateBuilder {
-    address: Option<solana_program::pubkey::Pubkey>,
-    authority: Option<solana_program::pubkey::Pubkey>,
     payer: Option<solana_program::pubkey::Pubkey>,
+    tree: Option<solana_program::pubkey::Pubkey>,
     system_program: Option<solana_program::pubkey::Pubkey>,
-    arg1: Option<u16>,
-    arg2: Option<u32>,
+    sysvar_rent: Option<solana_program::pubkey::Pubkey>,
     __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
 }
 
@@ -103,22 +90,16 @@ impl CreateBuilder {
     pub fn new() -> Self {
         Self::default()
     }
-    /// The address of the new account
-    #[inline(always)]
-    pub fn address(&mut self, address: solana_program::pubkey::Pubkey) -> &mut Self {
-        self.address = Some(address);
-        self
-    }
-    /// The authority of the new account
-    #[inline(always)]
-    pub fn authority(&mut self, authority: solana_program::pubkey::Pubkey) -> &mut Self {
-        self.authority = Some(authority);
-        self
-    }
     /// The account paying for the storage fees
     #[inline(always)]
     pub fn payer(&mut self, payer: solana_program::pubkey::Pubkey) -> &mut Self {
         self.payer = Some(payer);
+        self
+    }
+    /// The address of the new account
+    #[inline(always)]
+    pub fn tree(&mut self, tree: solana_program::pubkey::Pubkey) -> &mut Self {
+        self.tree = Some(tree);
         self
     }
     /// `[optional account, default to '11111111111111111111111111111111']`
@@ -128,14 +109,11 @@ impl CreateBuilder {
         self.system_program = Some(system_program);
         self
     }
+    /// `[optional account, default to 'SysvarRent111111111111111111111111111111111']`
+    /// Sysvar rent account
     #[inline(always)]
-    pub fn arg1(&mut self, arg1: u16) -> &mut Self {
-        self.arg1 = Some(arg1);
-        self
-    }
-    #[inline(always)]
-    pub fn arg2(&mut self, arg2: u32) -> &mut Self {
-        self.arg2 = Some(arg2);
+    pub fn sysvar_rent(&mut self, sysvar_rent: solana_program::pubkey::Pubkey) -> &mut Self {
+        self.sysvar_rent = Some(sysvar_rent);
         self
     }
     /// Add an aditional account to the instruction.
@@ -159,63 +137,57 @@ impl CreateBuilder {
     #[allow(clippy::clone_on_copy)]
     pub fn instruction(&self) -> solana_program::instruction::Instruction {
         let accounts = Create {
-            address: self.address.expect("address is not set"),
-            authority: self.authority.expect("authority is not set"),
             payer: self.payer.expect("payer is not set"),
+            tree: self.tree.expect("tree is not set"),
             system_program: self
                 .system_program
                 .unwrap_or(solana_program::pubkey!("11111111111111111111111111111111")),
-        };
-        let args = CreateInstructionArgs {
-            arg1: self.arg1.clone().expect("arg1 is not set"),
-            arg2: self.arg2.clone().expect("arg2 is not set"),
+            sysvar_rent: self.sysvar_rent.unwrap_or(solana_program::pubkey!(
+                "SysvarRent111111111111111111111111111111111"
+            )),
         };
 
-        accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
+        accounts.instruction_with_remaining_accounts(&self.__remaining_accounts)
     }
 }
 
 /// `create` CPI accounts.
 pub struct CreateCpiAccounts<'a, 'b> {
-    /// The address of the new account
-    pub address: &'b solana_program::account_info::AccountInfo<'a>,
-    /// The authority of the new account
-    pub authority: &'b solana_program::account_info::AccountInfo<'a>,
     /// The account paying for the storage fees
     pub payer: &'b solana_program::account_info::AccountInfo<'a>,
+    /// The address of the new account
+    pub tree: &'b solana_program::account_info::AccountInfo<'a>,
     /// The system program
     pub system_program: &'b solana_program::account_info::AccountInfo<'a>,
+    /// Sysvar rent account
+    pub sysvar_rent: &'b solana_program::account_info::AccountInfo<'a>,
 }
 
 /// `create` CPI instruction.
 pub struct CreateCpi<'a, 'b> {
     /// The program to invoke.
     pub __program: &'b solana_program::account_info::AccountInfo<'a>,
-    /// The address of the new account
-    pub address: &'b solana_program::account_info::AccountInfo<'a>,
-    /// The authority of the new account
-    pub authority: &'b solana_program::account_info::AccountInfo<'a>,
     /// The account paying for the storage fees
     pub payer: &'b solana_program::account_info::AccountInfo<'a>,
+    /// The address of the new account
+    pub tree: &'b solana_program::account_info::AccountInfo<'a>,
     /// The system program
     pub system_program: &'b solana_program::account_info::AccountInfo<'a>,
-    /// The arguments for the instruction.
-    pub __args: CreateInstructionArgs,
+    /// Sysvar rent account
+    pub sysvar_rent: &'b solana_program::account_info::AccountInfo<'a>,
 }
 
 impl<'a, 'b> CreateCpi<'a, 'b> {
     pub fn new(
         program: &'b solana_program::account_info::AccountInfo<'a>,
         accounts: CreateCpiAccounts<'a, 'b>,
-        args: CreateInstructionArgs,
     ) -> Self {
         Self {
             __program: program,
-            address: accounts.address,
-            authority: accounts.authority,
             payer: accounts.payer,
+            tree: accounts.tree,
             system_program: accounts.system_program,
-            __args: args,
+            sysvar_rent: accounts.sysvar_rent,
         }
     }
     #[inline(always)]
@@ -253,19 +225,19 @@ impl<'a, 'b> CreateCpi<'a, 'b> {
     ) -> solana_program::entrypoint::ProgramResult {
         let mut accounts = Vec::with_capacity(4 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new(
-            *self.address.key,
-            true,
-        ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
-            *self.authority.key,
-            false,
-        ));
-        accounts.push(solana_program::instruction::AccountMeta::new(
             *self.payer.key,
             true,
         ));
+        accounts.push(solana_program::instruction::AccountMeta::new(
+            *self.tree.key,
+            false,
+        ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             *self.system_program.key,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            *self.sysvar_rent.key,
             false,
         ));
         remaining_accounts.iter().for_each(|remaining_account| {
@@ -275,9 +247,7 @@ impl<'a, 'b> CreateCpi<'a, 'b> {
                 is_writable: remaining_account.2,
             })
         });
-        let mut data = CreateInstructionData::new().try_to_vec().unwrap();
-        let mut args = self.__args.try_to_vec().unwrap();
-        data.append(&mut args);
+        let data = CreateInstructionData::new().try_to_vec().unwrap();
 
         let instruction = solana_program::instruction::Instruction {
             program_id: crate::MERKLE_TREE_STORAGE_ID,
@@ -286,10 +256,10 @@ impl<'a, 'b> CreateCpi<'a, 'b> {
         };
         let mut account_infos = Vec::with_capacity(4 + 1 + remaining_accounts.len());
         account_infos.push(self.__program.clone());
-        account_infos.push(self.address.clone());
-        account_infos.push(self.authority.clone());
         account_infos.push(self.payer.clone());
+        account_infos.push(self.tree.clone());
         account_infos.push(self.system_program.clone());
+        account_infos.push(self.sysvar_rent.clone());
         remaining_accounts
             .iter()
             .for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
@@ -306,10 +276,10 @@ impl<'a, 'b> CreateCpi<'a, 'b> {
 ///
 /// ### Accounts:
 ///
-///   0. `[writable, signer]` address
-///   1. `[]` authority
-///   2. `[writable, signer]` payer
-///   3. `[]` system_program
+///   0. `[writable, signer]` payer
+///   1. `[writable]` tree
+///   2. `[]` system_program
+///   3. `[]` sysvar_rent
 pub struct CreateCpiBuilder<'a, 'b> {
     instruction: Box<CreateCpiBuilderInstruction<'a, 'b>>,
 }
@@ -318,38 +288,24 @@ impl<'a, 'b> CreateCpiBuilder<'a, 'b> {
     pub fn new(program: &'b solana_program::account_info::AccountInfo<'a>) -> Self {
         let instruction = Box::new(CreateCpiBuilderInstruction {
             __program: program,
-            address: None,
-            authority: None,
             payer: None,
+            tree: None,
             system_program: None,
-            arg1: None,
-            arg2: None,
+            sysvar_rent: None,
             __remaining_accounts: Vec::new(),
         });
         Self { instruction }
-    }
-    /// The address of the new account
-    #[inline(always)]
-    pub fn address(
-        &mut self,
-        address: &'b solana_program::account_info::AccountInfo<'a>,
-    ) -> &mut Self {
-        self.instruction.address = Some(address);
-        self
-    }
-    /// The authority of the new account
-    #[inline(always)]
-    pub fn authority(
-        &mut self,
-        authority: &'b solana_program::account_info::AccountInfo<'a>,
-    ) -> &mut Self {
-        self.instruction.authority = Some(authority);
-        self
     }
     /// The account paying for the storage fees
     #[inline(always)]
     pub fn payer(&mut self, payer: &'b solana_program::account_info::AccountInfo<'a>) -> &mut Self {
         self.instruction.payer = Some(payer);
+        self
+    }
+    /// The address of the new account
+    #[inline(always)]
+    pub fn tree(&mut self, tree: &'b solana_program::account_info::AccountInfo<'a>) -> &mut Self {
+        self.instruction.tree = Some(tree);
         self
     }
     /// The system program
@@ -361,14 +317,13 @@ impl<'a, 'b> CreateCpiBuilder<'a, 'b> {
         self.instruction.system_program = Some(system_program);
         self
     }
+    /// Sysvar rent account
     #[inline(always)]
-    pub fn arg1(&mut self, arg1: u16) -> &mut Self {
-        self.instruction.arg1 = Some(arg1);
-        self
-    }
-    #[inline(always)]
-    pub fn arg2(&mut self, arg2: u32) -> &mut Self {
-        self.instruction.arg2 = Some(arg2);
+    pub fn sysvar_rent(
+        &mut self,
+        sysvar_rent: &'b solana_program::account_info::AccountInfo<'a>,
+    ) -> &mut Self {
+        self.instruction.sysvar_rent = Some(sysvar_rent);
         self
     }
     /// Add an additional account to the instruction.
@@ -412,24 +367,22 @@ impl<'a, 'b> CreateCpiBuilder<'a, 'b> {
         &self,
         signers_seeds: &[&[&[u8]]],
     ) -> solana_program::entrypoint::ProgramResult {
-        let args = CreateInstructionArgs {
-            arg1: self.instruction.arg1.clone().expect("arg1 is not set"),
-            arg2: self.instruction.arg2.clone().expect("arg2 is not set"),
-        };
         let instruction = CreateCpi {
             __program: self.instruction.__program,
 
-            address: self.instruction.address.expect("address is not set"),
-
-            authority: self.instruction.authority.expect("authority is not set"),
-
             payer: self.instruction.payer.expect("payer is not set"),
+
+            tree: self.instruction.tree.expect("tree is not set"),
 
             system_program: self
                 .instruction
                 .system_program
                 .expect("system_program is not set"),
-            __args: args,
+
+            sysvar_rent: self
+                .instruction
+                .sysvar_rent
+                .expect("sysvar_rent is not set"),
         };
         instruction.invoke_signed_with_remaining_accounts(
             signers_seeds,
@@ -440,12 +393,10 @@ impl<'a, 'b> CreateCpiBuilder<'a, 'b> {
 
 struct CreateCpiBuilderInstruction<'a, 'b> {
     __program: &'b solana_program::account_info::AccountInfo<'a>,
-    address: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    authority: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     payer: Option<&'b solana_program::account_info::AccountInfo<'a>>,
+    tree: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     system_program: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    arg1: Option<u16>,
-    arg2: Option<u32>,
+    sysvar_rent: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
     __remaining_accounts: Vec<(
         &'b solana_program::account_info::AccountInfo<'a>,
