@@ -1,11 +1,13 @@
 #![cfg(feature = "test-sbf")]
 
 use borsh::BorshDeserialize;
-use merkle_tree_storage::{accounts::MerkleTree, instructions::CreateBuilder};
+use merkle_tree_storage::{accounts::MerkleTree, instructions::{CreateBuilder, InsertLeafBuilder}};
 use solana_program_test::{tokio, ProgramTest};
 use solana_sdk::{
-    signature::{Keypair, Signer}, system_program, sysvar, transaction::Transaction,
-    pubkey::Pubkey
+    pubkey::Pubkey,
+    signature::{Keypair, Signer},
+    system_program, sysvar,
+    transaction::Transaction,
 };
 
 #[tokio::test]
@@ -19,19 +21,28 @@ async fn create() {
 
     let address = Keypair::new();
 
-    let (tree_pda, bump) = Pubkey::find_program_address(&[b"tree", context.payer.pubkey().as_ref()], &merkle_tree_storage::ID);
+    let (tree_pda, bump) = Pubkey::find_program_address(
+        &[b"tree", context.payer.pubkey().as_ref()],
+        &merkle_tree_storage::ID,
+    );
 
-    let ix = CreateBuilder::new()
+    let ix_create = CreateBuilder::new()
         .payer(context.payer.pubkey())
         .tree(tree_pda)
         .system_program(system_program::ID)
         .sysvar_rent(sysvar::rent::ID)
         .instruction();
 
+    let ix_insert_leaf = InsertLeafBuilder::new()
+        .payer(context.payer.pubkey())
+        .tree(tree_pda)
+        .leaf([0; 32])
+        .instruction();
+
     // When we create a new account.
 
     let tx = Transaction::new_signed_with_payer(
-        &[ix],
+        &[ix_create, ix_insert_leaf],
         Some(&context.payer.pubkey()),
         &[&context.payer],
         context.last_blockhash,
@@ -40,11 +51,7 @@ async fn create() {
 
     // Then an account was created with the correct data.
 
-    let account = context
-        .banks_client
-        .get_account(tree_pda)
-        .await
-        .unwrap();
+    let account = context.banks_client.get_account(tree_pda).await.unwrap();
 
     assert!(account.is_some());
 

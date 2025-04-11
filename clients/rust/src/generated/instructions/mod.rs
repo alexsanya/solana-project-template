@@ -6,5 +6,7 @@
 //!
 
 pub(crate) mod r#create;
+pub(crate) mod r#insert_leaf;
 
 pub use self::r#create::*;
+pub use self::r#insert_leaf::*;
