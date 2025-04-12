@@ -9,6 +9,13 @@ use solana_sdk::{
     system_program, sysvar,
     transaction::Transaction,
 };
+use sha3::{Digest, Keccak256};
+
+fn keccak256(data: &[u8]) -> [u8; 32] {
+    let mut hasher = Keccak256::new();
+    hasher.update(data);
+    hasher.finalize().into()
+}
 
 #[tokio::test]
 async fn create() {
@@ -18,10 +25,9 @@ async fn create() {
             .await;
 
     // Given a new keypair.
+    let _address = Keypair::new();
 
-    let address = Keypair::new();
-
-    let (tree_pda, bump) = Pubkey::find_program_address(
+    let (tree_pda, _bump) = Pubkey::find_program_address(
         &[b"tree", context.payer.pubkey().as_ref()],
         &merkle_tree_storage::ID,
     );
@@ -33,16 +39,21 @@ async fn create() {
         .sysvar_rent(sysvar::rent::ID)
         .instruction();
 
-    let ix_insert_leaf = InsertLeafBuilder::new()
+    let ix_insert_first_leaf = InsertLeafBuilder::new()
         .payer(context.payer.pubkey())
         .tree(tree_pda)
-        .leaf([0; 32])
+        .leaf(keccak256(b"First leaf"))
+        .instruction();
+
+    let ix_insert_second_leaf = InsertLeafBuilder::new()
+        .payer(context.payer.pubkey())
+        .tree(tree_pda)
+        .leaf(keccak256(b"Second leaf"))
         .instruction();
 
     // When we create a new account.
-
     let tx = Transaction::new_signed_with_payer(
-        &[ix_create, ix_insert_leaf],
+        &[ix_create, ix_insert_first_leaf, ix_insert_second_leaf],
         Some(&context.payer.pubkey()),
         &[&context.payer],
         context.last_blockhash,
@@ -60,5 +71,5 @@ async fn create() {
 
     let mut account_data = account.data.as_ref();
     let my_account = MerkleTree::deserialize(&mut account_data).unwrap();
-    assert_eq!(my_account.next_leaf_index, 0);
+    assert_eq!(my_account.next_leaf_index, 2);
 }
