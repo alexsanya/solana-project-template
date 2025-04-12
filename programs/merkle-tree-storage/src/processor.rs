@@ -26,14 +26,31 @@ pub fn process_instruction<'a>(
         },
         MerkleTreeInstruction::InsertLeaf(insert_leaf_args) => {
             msg!("Instruction: InsertLeaf");
-            insert_leaf(accounts, insert_leaf_args)
+            insert_leaf(program_id, accounts, insert_leaf_args)
         }
     }
 }
 
-fn insert_leaf<'a>(accounts: &'a [AccountInfo<'a>], insert_leaf_args: InsertLeafArgs) -> ProgramResult {
-    msg!("Mock insert leaf");
+fn insert_leaf<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>], insert_leaf_args: InsertLeafArgs) -> ProgramResult {
     let ctx = InsertLeafAccounts::context(accounts)?;
+
+    let (expected_pda, _bump) = Pubkey::find_program_address(
+        &[b"tree", ctx.accounts.payer.key.as_ref()],
+        program_id,
+    );
+    if &expected_pda != ctx.accounts.tree.key {
+        msg!("Invalid tree account PDA for this payer");
+        return Err(MerkleTreeStorageError::InvalidPDA.into());
+    }
+    if ctx.accounts.tree.owner != program_id {
+        msg!("Invalid tree account owner");
+        return Err(MerkleTreeStorageError::InvalidPDA.into());
+    }
+    if !ctx.accounts.payer.is_signer {
+        msg!("Payer must be a signer");
+        return Err(MerkleTreeStorageError::PayerMustBeSigner.into());
+    }
+
     let mut tree = MerkleTree::load(ctx.accounts.tree)?;
     tree.insert_leaf(insert_leaf_args.leaf)?;
     tree.save(ctx.accounts.tree)?;

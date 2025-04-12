@@ -20,6 +20,12 @@ pub enum MerkleTreeStorageError {
     /// 3 - Tree overflow
     #[error("Tree overflow")]
     TreeOverflow,
+    /// 4 - Invalid PDA
+    #[error("Invalid PDA")]
+    InvalidPDA,
+    /// 5 - Payer must be a signer
+    #[error("Payer must be a signer")]
+    PayerMustBeSigner,
 }
 
 impl PrintProgramError for MerkleTreeStorageError {
