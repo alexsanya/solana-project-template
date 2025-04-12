@@ -8,14 +8,17 @@ use merkle_tree_storage::{
 use sha2::Sha256;
 use sha3::{Digest, Keccak256};
 use solana_program_test::{
-    tokio::{self, sync::OnceCell, sync::Mutex},
-    BanksClientError,
-    ProgramTest,ProgramTestContext
+    tokio::{self, sync::Mutex, sync::OnceCell},
+    BanksClientError, ProgramTest, ProgramTestContext,
 };
 use solana_sdk::{
-    instruction::{Instruction, InstructionError}, pubkey::Pubkey, signature::{Keypair, Signer}, system_instruction::transfer, system_program, sysvar, transaction::{Transaction, TransactionError}
+    instruction::{Instruction, InstructionError},
+    pubkey::Pubkey,
+    signature::{Keypair, Signer},
+    system_instruction::transfer,
+    system_program, sysvar,
+    transaction::{Transaction, TransactionError},
 };
-use std::sync::Arc;
 
 mod off_chain_tree;
 use off_chain_tree::OffchainMerkleTree;
@@ -28,7 +31,7 @@ fn keccak256(data: &[u8]) -> [u8; 32] {
 
 pub struct SharedContext {
     context: ProgramTestContext,
-    tree_pda: Pubkey
+    tree_pda: Pubkey,
 }
 
 async fn get_context() -> SharedContext {
@@ -45,6 +48,7 @@ async fn get_context() -> SharedContext {
     let ix_create_tree = CreateTreeBuilder::new()
         .payer(context.payer.pubkey())
         .tree(tree_pda)
+        .max_depth(3)
         .system_program(system_program::ID)
         .sysvar_rent(sysvar::rent::ID)
         .instruction();
@@ -55,23 +59,32 @@ async fn get_context() -> SharedContext {
         &[&context.payer],
         context.last_blockhash,
     );
-    context.banks_client.process_transaction(tx).await.expect("Cannot create tree PDA");
-    let account = context.banks_client.get_account(tree_pda).await.expect("Unable get acount");
+    context
+        .banks_client
+        .process_transaction(tx)
+        .await
+        .expect("Cannot create tree PDA");
+    let account = context
+        .banks_client
+        .get_account(tree_pda)
+        .await
+        .expect("Unable get acount");
     assert!(account.is_some());
 
-    SharedContext {
-        context,
-        tree_pda
-    }
+    SharedContext { context, tree_pda }
 }
 
 #[tokio::test]
-async fn accountAccess() {
+async fn insert_leaf_with_wrong_account() {
     let mut shared = get_context().await;
     // Given a new keypair.
     let hacker = Keypair::new();
     // send SOL from payer to hacker
-    let ix_transfer = transfer(&shared.context.payer.pubkey(), &hacker.pubkey(), 100000000000000);
+    let ix_transfer = transfer(
+        &shared.context.payer.pubkey(),
+        &hacker.pubkey(),
+        100000000000000,
+    );
 
     let tx = Transaction::new_signed_with_payer(
         &[ix_transfer],
@@ -79,8 +92,12 @@ async fn accountAccess() {
         &[&shared.context.payer],
         shared.context.last_blockhash,
     );
-    shared.context.banks_client.process_transaction(tx).await.unwrap();
-
+    shared
+        .context
+        .banks_client
+        .process_transaction(tx)
+        .await
+        .unwrap();
 
     let ix_insert_leaf = InsertLeafBuilder::new()
         .payer(hacker.pubkey())
@@ -88,18 +105,29 @@ async fn accountAccess() {
         .leaf(keccak256(&[1; 32]))
         .instruction();
 
-
     let tx = Transaction::new_signed_with_payer(
         &[ix_insert_leaf],
         Some(&hacker.pubkey()),
         &[&hacker],
         shared.context.last_blockhash,
     );
-    
+
     //process transaction and expect custom error with code 4
-    let error = shared.context.banks_client.process_transaction(tx).await.unwrap_err();
-    if let BanksClientError::TransactionError(TransactionError::InstructionError(index, InstructionError::Custom(code))) = error {
-        println!("Instruction {} failed with custom error code: 0x{:X}", index, code);
+    let error = shared
+        .context
+        .banks_client
+        .process_transaction(tx)
+        .await
+        .unwrap_err();
+    if let BanksClientError::TransactionError(TransactionError::InstructionError(
+        index,
+        InstructionError::Custom(code),
+    )) = error
+    {
+        println!(
+            "Instruction {} failed with custom error code: 0x{:X}",
+            index, code
+        );
         assert_eq!(code, 4);
     } else {
         panic!("Expected custom error with code 4");
@@ -121,10 +149,20 @@ async fn insert_leaf() {
         &[&shared.context.payer],
         shared.context.last_blockhash,
     );
-    shared.context.banks_client.process_transaction(tx).await.unwrap();
+    shared
+        .context
+        .banks_client
+        .process_transaction(tx)
+        .await
+        .unwrap();
 
     let tree_pda = shared.tree_pda.clone();
-    let account = shared.context.banks_client.get_account(tree_pda).await.expect("Unable get acount");
+    let account = shared
+        .context
+        .banks_client
+        .get_account(tree_pda)
+        .await
+        .expect("Unable get acount");
     assert!(account.is_some());
     let account = account.unwrap();
 
@@ -143,54 +181,120 @@ async fn insert_leaf() {
     assert_eq!(root, my_account.nodes[0]);
 }
 
-
 #[tokio::test]
-async fn insert_multiple_leafs() {
+async fn insert_maximum_leafs() {
     let mut shared = get_context().await;
 
     let leaves = vec![
         keccak256(b"First"),
         keccak256(b"Second"),
-        keccak256(b"Third")
+        keccak256(b"Third"),
+        keccak256(b"Fourth"),
+        keccak256(b"Fifth"),
+        keccak256(b"Sixth"),
+        keccak256(b"Seventh"),
+        keccak256(b"Eighth"),
     ];
 
-    let build_insert_leaf_tx = |leaf: [u8; 32]| InsertLeafBuilder::new()
-        .payer(shared.context.payer.pubkey())
-        .tree(shared.tree_pda)
-        .leaf(leaf)
-        .instruction();
+    let build_insert_leaf_ix = |leaf: [u8; 32]| {
+        InsertLeafBuilder::new()
+            .payer(shared.context.payer.pubkey())
+            .tree(shared.tree_pda)
+            .leaf(leaf)
+            .instruction()
+    };
 
+    let ixs: Vec<Instruction> = leaves.iter().map(|leaf| build_insert_leaf_ix(*leaf)).collect();
     let tx = Transaction::new_signed_with_payer(
-        &[
-            build_insert_leaf_tx(leaves[0]),
-            build_insert_leaf_tx(leaves[1]),
-            build_insert_leaf_tx(leaves[2])
-        ],
+        &ixs[0..8],
         Some(&shared.context.payer.pubkey()),
         &[&shared.context.payer],
         shared.context.last_blockhash,
     );
-    shared.context.banks_client.process_transaction(tx).await.unwrap();
+    shared
+        .context
+        .banks_client
+        .process_transaction(tx)
+        .await
+        .unwrap();
 
     let tree_pda = shared.tree_pda.clone();
-    let account = shared.context.banks_client.get_account(tree_pda).await.expect("Unable get acount");
+    let account = shared
+        .context
+        .banks_client
+        .get_account(tree_pda)
+        .await
+        .expect("Unable get acount");
     assert!(account.is_some());
     let account = account.unwrap();
 
     let mut account_data = account.data.as_ref();
     let my_account = MerkleTree::deserialize(&mut account_data).unwrap();
-    assert_eq!(my_account.next_leaf_index, 3);
+    assert_eq!(my_account.next_leaf_index, leaves.len() as u8);
 
     let mut tree = OffchainMerkleTree {
         nodes: vec![[0; 32]; OffchainMerkleTree::TREE_SIZE],
         next_leaf_index: 0,
     };
 
-    tree.insert_leaf(leaves[0]).unwrap();
-    tree.insert_leaf(leaves[1]).unwrap();
-    tree.insert_leaf(leaves[2]).unwrap();
+    for leaf in leaves {
+        tree.insert_leaf(leaf).unwrap();
+    }
 
     let root = tree.nodes[0];
     assert_eq!(root, my_account.nodes[0]);
 }
 
+
+#[tokio::test]
+async fn overflow_tree() {
+    let mut shared = get_context().await;
+
+    let leaves = vec![
+        keccak256(b"First"),
+        keccak256(b"Second"),
+        keccak256(b"Third"),
+        keccak256(b"Fourth"),
+        keccak256(b"Fifth"),
+        keccak256(b"Sixth"),
+        keccak256(b"Seventh"),
+        keccak256(b"Eighth"),
+        keccak256(b"Ninth")
+    ];
+
+    let build_insert_leaf_ix = |leaf: [u8; 32]| {
+        InsertLeafBuilder::new()
+            .payer(shared.context.payer.pubkey())
+            .tree(shared.tree_pda)
+            .leaf(leaf)
+            .instruction()
+    };
+
+    let ixs: Vec<Instruction> = leaves.iter().map(|leaf| build_insert_leaf_ix(*leaf)).collect();
+    let tx = Transaction::new_signed_with_payer(
+        &ixs[0..9],
+        Some(&shared.context.payer.pubkey()),
+        &[&shared.context.payer],
+        shared.context.last_blockhash,
+    );
+
+    let error = shared
+        .context
+        .banks_client
+        .process_transaction(tx)
+        .await
+        .unwrap_err();
+    if let BanksClientError::TransactionError(TransactionError::InstructionError(
+        index,
+        InstructionError::Custom(code),
+    )) = error
+    {
+        println!(
+            "Instruction {} failed with custom error code: 0x{:X}",
+            index, code
+        );
+        assert_eq!(code, 3);
+    } else {
+        panic!("Expected custom error with code 4");
+    }
+}

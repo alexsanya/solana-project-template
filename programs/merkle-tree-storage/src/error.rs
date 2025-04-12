@@ -10,22 +10,22 @@ use thiserror::Error;
 pub enum MerkleTreeStorageError {
     /// 0 - Invalid System Program
     #[error("Invalid System Program")]
-    InvalidSystemProgram,
+    InvalidSystemProgram = 0,
     /// 1 - Error deserializing account
     #[error("Error deserializing account")]
-    DeserializationError,
+    DeserializationError = 1,
     /// 2 - Error serializing account
     #[error("Error serializing account")]
-    SerializationError,
+    SerializationError = 2,
     /// 3 - Tree overflow
     #[error("Tree overflow")]
-    TreeOverflow,
+    TreeOverflow = 3,
     /// 4 - Invalid PDA
     #[error("Invalid PDA")]
-    InvalidPDA,
+    InvalidPDA = 4,
     /// 5 - Payer must be a signer
     #[error("Payer must be a signer")]
-    PayerMustBeSigner,
+    PayerMustBeSigner = 5,
 }
 
 impl PrintProgramError for MerkleTreeStorageError {

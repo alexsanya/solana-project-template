@@ -40,9 +40,12 @@ export type CreateTreeInstructionAccounts = {
 };
 
 // Data.
-export type CreateTreeInstructionData = { discriminator: number };
+export type CreateTreeInstructionData = {
+  discriminator: number;
+  maxDepth: number;
+};
 
-export type CreateTreeInstructionDataArgs = {};
+export type CreateTreeInstructionDataArgs = { maxDepth: number };
 
 export function getCreateTreeInstructionDataSerializer(): Serializer<
   CreateTreeInstructionDataArgs,
@@ -53,17 +56,24 @@ export function getCreateTreeInstructionDataSerializer(): Serializer<
     any,
     CreateTreeInstructionData
   >(
-    struct<CreateTreeInstructionData>([['discriminator', u8()]], {
-      description: 'CreateTreeInstructionData',
-    }),
+    struct<CreateTreeInstructionData>(
+      [
+        ['discriminator', u8()],
+        ['maxDepth', u8()],
+      ],
+      { description: 'CreateTreeInstructionData' }
+    ),
     (value) => ({ ...value, discriminator: 0 })
   ) as Serializer<CreateTreeInstructionDataArgs, CreateTreeInstructionData>;
 }
 
+// Args.
+export type CreateTreeInstructionArgs = CreateTreeInstructionDataArgs;
+
 // Instruction.
 export function createTree(
   context: Pick<Context, 'payer' | 'programs'>,
-  input: CreateTreeInstructionAccounts
+  input: CreateTreeInstructionAccounts & CreateTreeInstructionArgs
 ): TransactionBuilder {
   // Program ID.
   const programId = context.programs.getPublicKey(
@@ -90,6 +100,9 @@ export function createTree(
       value: input.sysvarRent ?? null,
     },
   } satisfies ResolvedAccountsWithIndices;
+
+  // Arguments.
+  const resolvedArgs: CreateTreeInstructionArgs = { ...input };
 
   // Default values.
   if (!resolvedAccounts.payer.value) {
@@ -121,7 +134,9 @@ export function createTree(
   );
 
   // Data.
-  const data = getCreateTreeInstructionDataSerializer().serialize({});
+  const data = getCreateTreeInstructionDataSerializer().serialize(
+    resolvedArgs as CreateTreeInstructionDataArgs
+  );
 
   // Bytes Created On Chain.
   const bytesCreatedOnChain = 0;

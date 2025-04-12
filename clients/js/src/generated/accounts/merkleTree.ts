@@ -31,6 +31,7 @@ export type MerkleTree = Account<MerkleTreeAccountData>;
 
 export type MerkleTreeAccountData = {
   nodes: Array<Uint8Array>;
+  maxDepth: number;
   nextLeafIndex: number;
 };
 
@@ -43,6 +44,7 @@ export function getMerkleTreeAccountDataSerializer(): Serializer<
   return struct<MerkleTreeAccountData>(
     [
       ['nodes', array(bytes({ size: 32 }))],
+      ['maxDepth', u8()],
       ['nextLeafIndex', u8()],
     ],
     { description: 'MerkleTreeAccountData' }
@@ -115,8 +117,13 @@ export function getMerkleTreeGpaBuilder(
     'TREEZwpvqQN6HVAAPjqhJAr8BuoGhXSx34jm9YV5DPB'
   );
   return gpaBuilder(context, programId)
-    .registerFields<{ nodes: Array<Uint8Array>; nextLeafIndex: number }>({
+    .registerFields<{
+      nodes: Array<Uint8Array>;
+      maxDepth: number;
+      nextLeafIndex: number;
+    }>({
       nodes: [0, array(bytes({ size: 32 }))],
+      maxDepth: [null, u8()],
       nextLeafIndex: [null, u8()],
     })
     .deserializeUsing<MerkleTree>((account) => deserializeMerkleTree(account));

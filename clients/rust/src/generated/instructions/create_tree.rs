@@ -23,12 +23,16 @@ pub struct CreateTree {
 }
 
 impl CreateTree {
-    pub fn instruction(&self) -> solana_program::instruction::Instruction {
-        self.instruction_with_remaining_accounts(&[])
+    pub fn instruction(
+        &self,
+        args: CreateTreeInstructionArgs,
+    ) -> solana_program::instruction::Instruction {
+        self.instruction_with_remaining_accounts(args, &[])
     }
     #[allow(clippy::vec_init_then_push)]
     pub fn instruction_with_remaining_accounts(
         &self,
+        args: CreateTreeInstructionArgs,
         remaining_accounts: &[solana_program::instruction::AccountMeta],
     ) -> solana_program::instruction::Instruction {
         let mut accounts = Vec::with_capacity(4 + remaining_accounts.len());
@@ -47,7 +51,9 @@ impl CreateTree {
             false,
         ));
         accounts.extend_from_slice(remaining_accounts);
-        let data = CreateTreeInstructionData::new().try_to_vec().unwrap();
+        let mut data = CreateTreeInstructionData::new().try_to_vec().unwrap();
+        let mut args = args.try_to_vec().unwrap();
+        data.append(&mut args);
 
         solana_program::instruction::Instruction {
             program_id: crate::MERKLE_TREE_STORAGE_ID,
@@ -69,6 +75,14 @@ impl CreateTreeInstructionData {
     }
 }
 
+#[cfg_attr(not(feature = "anchor"), derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(feature = "anchor", derive(AnchorSerialize, AnchorDeserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CreateTreeInstructionArgs {
+    pub max_depth: u8,
+}
+
 /// Instruction builder for `CreateTree`.
 ///
 /// ### Accounts:
@@ -83,6 +97,7 @@ pub struct CreateTreeBuilder {
     tree: Option<solana_program::pubkey::Pubkey>,
     system_program: Option<solana_program::pubkey::Pubkey>,
     sysvar_rent: Option<solana_program::pubkey::Pubkey>,
+    max_depth: Option<u8>,
     __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
 }
 
@@ -116,6 +131,11 @@ impl CreateTreeBuilder {
         self.sysvar_rent = Some(sysvar_rent);
         self
     }
+    #[inline(always)]
+    pub fn max_depth(&mut self, max_depth: u8) -> &mut Self {
+        self.max_depth = Some(max_depth);
+        self
+    }
     /// Add an aditional account to the instruction.
     #[inline(always)]
     pub fn add_remaining_account(
@@ -146,8 +166,11 @@ impl CreateTreeBuilder {
                 "SysvarRent111111111111111111111111111111111"
             )),
         };
+        let args = CreateTreeInstructionArgs {
+            max_depth: self.max_depth.clone().expect("max_depth is not set"),
+        };
 
-        accounts.instruction_with_remaining_accounts(&self.__remaining_accounts)
+        accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
     }
 }
 
@@ -175,12 +198,15 @@ pub struct CreateTreeCpi<'a, 'b> {
     pub system_program: &'b solana_program::account_info::AccountInfo<'a>,
     /// Sysvar rent account
     pub sysvar_rent: &'b solana_program::account_info::AccountInfo<'a>,
+    /// The arguments for the instruction.
+    pub __args: CreateTreeInstructionArgs,
 }
 
 impl<'a, 'b> CreateTreeCpi<'a, 'b> {
     pub fn new(
         program: &'b solana_program::account_info::AccountInfo<'a>,
         accounts: CreateTreeCpiAccounts<'a, 'b>,
+        args: CreateTreeInstructionArgs,
     ) -> Self {
         Self {
             __program: program,
@@ -188,6 +214,7 @@ impl<'a, 'b> CreateTreeCpi<'a, 'b> {
             tree: accounts.tree,
             system_program: accounts.system_program,
             sysvar_rent: accounts.sysvar_rent,
+            __args: args,
         }
     }
     #[inline(always)]
@@ -247,7 +274,9 @@ impl<'a, 'b> CreateTreeCpi<'a, 'b> {
                 is_writable: remaining_account.2,
             })
         });
-        let data = CreateTreeInstructionData::new().try_to_vec().unwrap();
+        let mut data = CreateTreeInstructionData::new().try_to_vec().unwrap();
+        let mut args = self.__args.try_to_vec().unwrap();
+        data.append(&mut args);
 
         let instruction = solana_program::instruction::Instruction {
             program_id: crate::MERKLE_TREE_STORAGE_ID,
@@ -292,6 +321,7 @@ impl<'a, 'b> CreateTreeCpiBuilder<'a, 'b> {
             tree: None,
             system_program: None,
             sysvar_rent: None,
+            max_depth: None,
             __remaining_accounts: Vec::new(),
         });
         Self { instruction }
@@ -324,6 +354,11 @@ impl<'a, 'b> CreateTreeCpiBuilder<'a, 'b> {
         sysvar_rent: &'b solana_program::account_info::AccountInfo<'a>,
     ) -> &mut Self {
         self.instruction.sysvar_rent = Some(sysvar_rent);
+        self
+    }
+    #[inline(always)]
+    pub fn max_depth(&mut self, max_depth: u8) -> &mut Self {
+        self.instruction.max_depth = Some(max_depth);
         self
     }
     /// Add an additional account to the instruction.
@@ -367,6 +402,13 @@ impl<'a, 'b> CreateTreeCpiBuilder<'a, 'b> {
         &self,
         signers_seeds: &[&[&[u8]]],
     ) -> solana_program::entrypoint::ProgramResult {
+        let args = CreateTreeInstructionArgs {
+            max_depth: self
+                .instruction
+                .max_depth
+                .clone()
+                .expect("max_depth is not set"),
+        };
         let instruction = CreateTreeCpi {
             __program: self.instruction.__program,
 
@@ -383,6 +425,7 @@ impl<'a, 'b> CreateTreeCpiBuilder<'a, 'b> {
                 .instruction
                 .sysvar_rent
                 .expect("sysvar_rent is not set"),
+            __args: args,
         };
         instruction.invoke_signed_with_remaining_accounts(
             signers_seeds,
@@ -397,6 +440,7 @@ struct CreateTreeCpiBuilderInstruction<'a, 'b> {
     tree: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     system_program: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     sysvar_rent: Option<&'b solana_program::account_info::AccountInfo<'a>>,
+    max_depth: Option<u8>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
     __remaining_accounts: Vec<(
         &'b solana_program::account_info::AccountInfo<'a>,

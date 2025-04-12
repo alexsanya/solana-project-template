@@ -38,7 +38,14 @@
           ]
         }
       ],
-      "args": [],
+      "args": [
+        {
+          "name": "createTreeArgs",
+          "type": {
+            "defined": "CreateTreeArgs"
+          }
+        }
+      ],
       "discriminant": {
         "type": "u8",
         "value": 0
@@ -96,6 +103,10 @@
             }
           },
           {
+            "name": "maxDepth",
+            "type": "u8"
+          },
+          {
             "name": "nextLeafIndex",
             "type": "u8"
           }
@@ -117,6 +128,18 @@
                 32
               ]
             }
+          }
+        ]
+      }
+    },
+    {
+      "name": "CreateTreeArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "maxDepth",
+            "type": "u8"
           }
         ]
       }

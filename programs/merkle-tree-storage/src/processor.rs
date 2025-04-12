@@ -9,7 +9,7 @@ use hex;
 
 use crate::error::MerkleTreeStorageError;
 use crate::instruction::accounts::{CreateTreeAccounts, InsertLeafAccounts};
-use crate::instruction::{InsertLeafArgs, MerkleTreeInstruction};
+use crate::instruction::{CreateTreeArgs, InsertLeafArgs, MerkleTreeInstruction};
 use crate::state::MerkleTree;
 
 pub fn process_instruction<'a>(
@@ -20,9 +20,9 @@ pub fn process_instruction<'a>(
     let instruction: MerkleTreeInstruction =
         MerkleTreeInstruction::try_from_slice(instruction_data)?;
     match instruction {
-        MerkleTreeInstruction::CreateTree() => {
+        MerkleTreeInstruction::CreateTree(create_tree_args) => {
             msg!("Instruction: CreateTree");
-            create_tree(program_id, accounts)
+            create_tree(program_id, accounts, create_tree_args)
         },
         MerkleTreeInstruction::InsertLeaf(insert_leaf_args) => {
             msg!("Instruction: InsertLeaf");
@@ -58,7 +58,7 @@ fn insert_leaf<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>], insert_
     Ok(())
 }
 
-fn create_tree<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>]) -> ProgramResult {
+fn create_tree<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>], create_tree_args: CreateTreeArgs) -> ProgramResult {
     // Accounts.
     let ctx = CreateTreeAccounts::context(accounts)?;
     let rent = Rent::get()?;
@@ -69,7 +69,7 @@ fn create_tree<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>]) -> Prog
     }
 
     // Fetch the space and minimum lamports required for rent exemption.
-    let space: usize = MerkleTree::TREE_SIZE_BYTES;
+    let space: usize = MerkleTree::get_tree_size_bytes(create_tree_args.max_depth);
     let lamports: u64 = rent.minimum_balance(space);
     let (expected_pda, bump) = Pubkey::find_program_address(&[b"tree", ctx.accounts.payer.key.as_ref()], program_id);
     if &expected_pda != ctx.accounts.tree.key {
@@ -95,7 +95,8 @@ fn create_tree<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>]) -> Prog
     )?;
 
     let tree = MerkleTree {
-        nodes: vec![[0; 32]; MerkleTree::TREE_SIZE],
+        nodes: vec![[0; 32]; MerkleTree::get_tree_size(create_tree_args.max_depth)],
+        max_depth: create_tree_args.max_depth,
         next_leaf_index: 0,
     };
 

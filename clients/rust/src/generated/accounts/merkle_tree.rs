@@ -16,6 +16,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MerkleTree {
     pub nodes: Vec<[u8; 32]>,
+    pub max_depth: u8,
     pub next_leaf_index: u8,
 }
 

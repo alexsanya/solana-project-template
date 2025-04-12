@@ -8,18 +8,24 @@ use solana_program::program_error::ProgramError;
 
 use crate::error::MerkleTreeStorageError;
 
-const MAX_DEPTH: usize = 3; // Tree with 8 leaves max
-
 #[repr(C)]
 #[derive(Clone, BorshSerialize, BorshDeserialize, Debug, ShankAccount)]
 pub struct MerkleTree {
     pub nodes: Vec<[u8; 32]>,
+    pub max_depth: u8,
     pub next_leaf_index: u8, // index of the next free leaf
 }
 
 impl MerkleTree {
-    pub const TREE_SIZE: usize = (1 << (MAX_DEPTH + 1)) - 1; // 15 nodes
-    pub const TREE_SIZE_BYTES: usize = 8 + Self::TREE_SIZE * 32 + 1; // 8 bytes for vec length + bytes for all nodes + 1 byte for next_leaf_index
+
+    pub fn get_tree_size(max_depth: u8) -> usize {
+        return (1 << (max_depth + 1)) - 1;
+    }
+
+    pub fn get_tree_size_bytes(max_depth: u8) -> usize {
+        let tree_size = Self::get_tree_size(max_depth);
+        return 8 + tree_size * 32 + 2; // 8 bytes for vec length + bytes for all nodes + 1 byte for next_leaf_index + 1 byte for max_depth
+    }
 
     pub fn load(account: &AccountInfo) -> Result<Self, ProgramError> {
         let mut bytes: &[u8] = &(*account.data).borrow();
@@ -37,8 +43,8 @@ impl MerkleTree {
     }
 
     pub fn insert_leaf(&mut self, leaf: [u8; 32]) -> Result<(), MerkleTreeStorageError> {
-        let leaf_pos = (1 << MAX_DEPTH) - 1 + self.next_leaf_index as usize;
-        if leaf_pos >= Self::TREE_SIZE {
+        let leaf_pos = (1 << self.max_depth) - 1 + self.next_leaf_index as usize;
+        if leaf_pos >= Self::get_tree_size(self.max_depth) {
             msg!("Tree is full");
             return Err(MerkleTreeStorageError::TreeOverflow);
         }
