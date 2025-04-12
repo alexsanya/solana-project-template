@@ -5,9 +5,10 @@ use solana_program::{
     account_info::AccountInfo, entrypoint::ProgramResult, msg, pubkey::Pubkey,
     rent::Rent, system_instruction, system_program, sysvar::Sysvar,
 };
+use hex;
 
 use crate::error::MerkleTreeStorageError;
-use crate::instruction::accounts::CreateAccounts;
+use crate::instruction::accounts::{CreateAccounts, InsertLeafAccounts};
 use crate::instruction::{InsertLeafArgs, MerkleTreeInstruction};
 use crate::state::MerkleTree;
 
@@ -25,13 +26,18 @@ pub fn process_instruction<'a>(
         },
         MerkleTreeInstruction::InsertLeaf(insert_leaf_args) => {
             msg!("Instruction: InsertLeaf");
-            insert_leaf(program_id, accounts, insert_leaf_args)
+            insert_leaf(accounts, insert_leaf_args)
         }
     }
 }
 
-fn insert_leaf<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>], insert_leaf_args: InsertLeafArgs) -> ProgramResult {
+fn insert_leaf<'a>(accounts: &'a [AccountInfo<'a>], insert_leaf_args: InsertLeafArgs) -> ProgramResult {
     msg!("Mock insert leaf");
+    let ctx = InsertLeafAccounts::context(accounts)?;
+    let mut tree = MerkleTree::load(ctx.accounts.tree)?;
+    tree.insert_leaf(insert_leaf_args.leaf)?;
+    tree.save(ctx.accounts.tree)?;
+    msg!("Leaf inserted. Root: {}", hex::encode(tree.nodes[0]));
     Ok(())
 }
 
@@ -70,6 +76,13 @@ fn create<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>]) -> ProgramRe
         ],
         &[&[b"tree", ctx.accounts.payer.key.as_ref(), &[bump]]],
     )?;
+
+    let tree = MerkleTree {
+        nodes: vec![[0; 32]; MerkleTree::TREE_SIZE],
+        next_leaf_index: 0,
+    };
+
+    tree.save(ctx.accounts.tree)?;
 
     msg!("Merkle tree PDA initialized");
     Ok(())

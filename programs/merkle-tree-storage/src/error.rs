@@ -17,6 +17,9 @@ pub enum MerkleTreeStorageError {
     /// 2 - Error serializing account
     #[error("Error serializing account")]
     SerializationError,
+    /// 3 - Tree overflow
+    #[error("Tree overflow")]
+    TreeOverflow,
 }
 
 impl PrintProgramError for MerkleTreeStorageError {
