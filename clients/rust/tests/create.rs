@@ -31,51 +31,43 @@ pub struct SharedContext {
     tree_pda: Pubkey
 }
 
-static SHARED: OnceCell<Arc<Mutex<SharedContext>>> = OnceCell::const_new();
+async fn get_context() -> SharedContext {
+    let mut context =
+        ProgramTest::new("merkle_tree_storage_program", merkle_tree_storage::ID, None)
+            .start_with_context()
+            .await;
 
-async fn get_context() -> Arc<Mutex<SharedContext>> {
-    SHARED
-        .get_or_init(|| async {
-            let mut context =
-                ProgramTest::new("merkle_tree_storage_program", merkle_tree_storage::ID, None)
-                    .start_with_context()
-                    .await;
+    let (tree_pda, _bump) = Pubkey::find_program_address(
+        &[b"tree", context.payer.pubkey().as_ref()],
+        &merkle_tree_storage::ID,
+    );
 
-            let (tree_pda, _bump) = Pubkey::find_program_address(
-                &[b"tree", context.payer.pubkey().as_ref()],
-                &merkle_tree_storage::ID,
-            );
+    let ix_create_tree = CreateTreeBuilder::new()
+        .payer(context.payer.pubkey())
+        .tree(tree_pda)
+        .system_program(system_program::ID)
+        .sysvar_rent(sysvar::rent::ID)
+        .instruction();
 
-            let ix_create_tree = CreateTreeBuilder::new()
-                .payer(context.payer.pubkey())
-                .tree(tree_pda)
-                .system_program(system_program::ID)
-                .sysvar_rent(sysvar::rent::ID)
-                .instruction();
+    let tx = Transaction::new_signed_with_payer(
+        &[ix_create_tree],
+        Some(&context.payer.pubkey()),
+        &[&context.payer],
+        context.last_blockhash,
+    );
+    context.banks_client.process_transaction(tx).await.expect("Cannot create tree PDA");
+    let account = context.banks_client.get_account(tree_pda).await.expect("Unable get acount");
+    assert!(account.is_some());
 
-            let tx = Transaction::new_signed_with_payer(
-                &[ix_create_tree],
-                Some(&context.payer.pubkey()),
-                &[&context.payer],
-                context.last_blockhash,
-            );
-            context.banks_client.process_transaction(tx).await.expect("Cannot create tree PDA");
-            let account = context.banks_client.get_account(tree_pda).await.expect("Unable get acount");
-            assert!(account.is_some());
-
-            Arc::new(Mutex::new(SharedContext {
-                context,
-                tree_pda
-            }))
-        })
-        .await
-        .clone()
+    SharedContext {
+        context,
+        tree_pda
+    }
 }
 
 #[tokio::test]
 async fn accountAccess() {
-    let binding = get_context().await;
-    let mut shared = binding.lock().await;
+    let mut shared = get_context().await;
     // Given a new keypair.
     let hacker = Keypair::new();
     // send SOL from payer to hacker
@@ -124,8 +116,7 @@ async fn accountAccess() {
 }
 #[tokio::test]
 async fn insert_leaf() {
-    let binding = get_context().await;
-    let mut shared = binding.lock().await;
+    let mut shared = get_context().await;
 
     let ix_insert_first_leaf = InsertLeafBuilder::new()
         .payer(shared.context.payer.pubkey())
