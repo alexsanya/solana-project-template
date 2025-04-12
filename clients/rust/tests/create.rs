@@ -1,22 +1,26 @@
 #![cfg(feature = "test-sbf")]
 
 use borsh::BorshDeserialize;
-use hex;
 use merkle_tree_storage::{
     accounts::MerkleTree,
     instructions::{CreateTreeBuilder, InsertLeafBuilder},
 };
-use sha2::Sha256;
 use sha3::{Digest, Keccak256};
 use solana_program_test::{
-    tokio::{self, sync::OnceCell, sync::Mutex},
+    tokio,
     BanksClientError,
-    ProgramTest,ProgramTestContext
+    ProgramTest,
+    ProgramTestContext
 };
 use solana_sdk::{
-    instruction::{Instruction, InstructionError}, pubkey::Pubkey, signature::{Keypair, Signer}, system_instruction::transfer, system_program, sysvar, transaction::{Transaction, TransactionError}
+    instruction::InstructionError,
+    pubkey::Pubkey,
+    signature::{Keypair, Signer},
+    system_instruction::transfer,
+    system_program,
+    sysvar,
+    transaction::{Transaction, TransactionError}
 };
-use std::sync::Arc;
 
 //use crate::off_chain_tree::OffchainMerkleTree;
 
