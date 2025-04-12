@@ -5,24 +5,20 @@ use merkle_tree_storage::{
     accounts::MerkleTree,
     instructions::{CreateTreeBuilder, InsertLeafBuilder},
 };
+use sha2::Sha256;
 use sha3::{Digest, Keccak256};
 use solana_program_test::{
-    tokio,
+    tokio::{self, sync::OnceCell, sync::Mutex},
     BanksClientError,
-    ProgramTest,
-    ProgramTestContext
+    ProgramTest,ProgramTestContext
 };
 use solana_sdk::{
-    instruction::InstructionError,
-    pubkey::Pubkey,
-    signature::{Keypair, Signer},
-    system_instruction::transfer,
-    system_program,
-    sysvar,
-    transaction::{Transaction, TransactionError}
+    instruction::{Instruction, InstructionError}, pubkey::Pubkey, signature::{Keypair, Signer}, system_instruction::transfer, system_program, sysvar, transaction::{Transaction, TransactionError}
 };
+use std::sync::Arc;
 
-//use crate::off_chain_tree::OffchainMerkleTree;
+mod off_chain_tree;
+use off_chain_tree::OffchainMerkleTree;
 
 fn keccak256(data: &[u8]) -> [u8; 32] {
     let mut hasher = Keccak256::new();
@@ -102,20 +98,11 @@ async fn accountAccess() {
     
     //process transaction and expect custom error with code 4
     let error = shared.context.banks_client.process_transaction(tx).await.unwrap_err();
-    match error {
-        BanksClientError::TransactionError(TransactionError::InstructionError(index, error)) => {
-            println!("❌ Instruction {} failed with error: {:?}", index, error);
-    
-            if let InstructionError::Custom(code) = error {
-                assert_eq!(code, 4);
-                println!("🔍 Custom program error code: 0x{:X} (decimal: {})", code, code);
-            } else {
-                panic!("Expected custom error with code 4");
-            }
-        }
-        _ => {
-            panic!("Expected custom error with code 4");
-        }
+    if let BanksClientError::TransactionError(TransactionError::InstructionError(index, InstructionError::Custom(code))) = error {
+        println!("Instruction {} failed with custom error code: 0x{:X}", index, code);
+        assert_eq!(code, 4);
+    } else {
+        panic!("Expected custom error with code 4");
     }
 }
 #[tokio::test]
@@ -145,15 +132,65 @@ async fn insert_leaf() {
     let my_account = MerkleTree::deserialize(&mut account_data).unwrap();
     assert_eq!(my_account.next_leaf_index, 1);
 
-    //let mut tree = OffchainMerkleTree {
-    //    nodes: vec![[0; 32]; OffchainMerkleTree::TREE_SIZE],
-    //    next_leaf_index: 0,
-    //};
+    let mut tree = OffchainMerkleTree {
+        nodes: vec![[0; 32]; OffchainMerkleTree::TREE_SIZE],
+        next_leaf_index: 0,
+    };
 
-    //tree.insert_leaf([1; 32]).unwrap();
+    tree.insert_leaf([1; 32]).unwrap();
 
-    //let root = tree.nodes[0];
-    //println!("📦 Merkle Root: {}", hex::encode(root));
-    //assert_eq!(root, my_account.nodes[0]);
+    let root = tree.nodes[0];
+    assert_eq!(root, my_account.nodes[0]);
+}
+
+
+#[tokio::test]
+async fn insert_multiple_leafs() {
+    let mut shared = get_context().await;
+
+    let leaves = vec![
+        keccak256(b"First"),
+        keccak256(b"Second"),
+        keccak256(b"Third")
+    ];
+
+    let build_insert_leaf_tx = |leaf: [u8; 32]| InsertLeafBuilder::new()
+        .payer(shared.context.payer.pubkey())
+        .tree(shared.tree_pda)
+        .leaf(leaf)
+        .instruction();
+
+    let tx = Transaction::new_signed_with_payer(
+        &[
+            build_insert_leaf_tx(leaves[0]),
+            build_insert_leaf_tx(leaves[1]),
+            build_insert_leaf_tx(leaves[2])
+        ],
+        Some(&shared.context.payer.pubkey()),
+        &[&shared.context.payer],
+        shared.context.last_blockhash,
+    );
+    shared.context.banks_client.process_transaction(tx).await.unwrap();
+
+    let tree_pda = shared.tree_pda.clone();
+    let account = shared.context.banks_client.get_account(tree_pda).await.expect("Unable get acount");
+    assert!(account.is_some());
+    let account = account.unwrap();
+
+    let mut account_data = account.data.as_ref();
+    let my_account = MerkleTree::deserialize(&mut account_data).unwrap();
+    assert_eq!(my_account.next_leaf_index, 3);
+
+    let mut tree = OffchainMerkleTree {
+        nodes: vec![[0; 32]; OffchainMerkleTree::TREE_SIZE],
+        next_leaf_index: 0,
+    };
+
+    tree.insert_leaf(leaves[0]).unwrap();
+    tree.insert_leaf(leaves[1]).unwrap();
+    tree.insert_leaf(leaves[2]).unwrap();
+
+    let root = tree.nodes[0];
+    assert_eq!(root, my_account.nodes[0]);
 }
 
