@@ -11,7 +11,7 @@ use anchor_lang::prelude::{AnchorDeserialize, AnchorSerialize};
 use borsh::{BorshDeserialize, BorshSerialize};
 
 /// Accounts.
-pub struct Create {
+pub struct CreateTree {
     /// The account paying for the storage fees
     pub payer: solana_program::pubkey::Pubkey,
     /// The address of the new account
@@ -22,7 +22,7 @@ pub struct Create {
     pub sysvar_rent: solana_program::pubkey::Pubkey,
 }
 
-impl Create {
+impl CreateTree {
     pub fn instruction(&self) -> solana_program::instruction::Instruction {
         self.instruction_with_remaining_accounts(&[])
     }
@@ -47,7 +47,7 @@ impl Create {
             false,
         ));
         accounts.extend_from_slice(remaining_accounts);
-        let data = CreateInstructionData::new().try_to_vec().unwrap();
+        let data = CreateTreeInstructionData::new().try_to_vec().unwrap();
 
         solana_program::instruction::Instruction {
             program_id: crate::MERKLE_TREE_STORAGE_ID,
@@ -59,17 +59,17 @@ impl Create {
 
 #[cfg_attr(not(feature = "anchor"), derive(BorshSerialize, BorshDeserialize))]
 #[cfg_attr(feature = "anchor", derive(AnchorSerialize, AnchorDeserialize))]
-pub struct CreateInstructionData {
+pub struct CreateTreeInstructionData {
     discriminator: u8,
 }
 
-impl CreateInstructionData {
+impl CreateTreeInstructionData {
     pub fn new() -> Self {
         Self { discriminator: 0 }
     }
 }
 
-/// Instruction builder for `Create`.
+/// Instruction builder for `CreateTree`.
 ///
 /// ### Accounts:
 ///
@@ -78,7 +78,7 @@ impl CreateInstructionData {
 ///   2. `[optional]` system_program (default to `11111111111111111111111111111111`)
 ///   3. `[optional]` sysvar_rent (default to `SysvarRent111111111111111111111111111111111`)
 #[derive(Default)]
-pub struct CreateBuilder {
+pub struct CreateTreeBuilder {
     payer: Option<solana_program::pubkey::Pubkey>,
     tree: Option<solana_program::pubkey::Pubkey>,
     system_program: Option<solana_program::pubkey::Pubkey>,
@@ -86,7 +86,7 @@ pub struct CreateBuilder {
     __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
 }
 
-impl CreateBuilder {
+impl CreateTreeBuilder {
     pub fn new() -> Self {
         Self::default()
     }
@@ -136,7 +136,7 @@ impl CreateBuilder {
     }
     #[allow(clippy::clone_on_copy)]
     pub fn instruction(&self) -> solana_program::instruction::Instruction {
-        let accounts = Create {
+        let accounts = CreateTree {
             payer: self.payer.expect("payer is not set"),
             tree: self.tree.expect("tree is not set"),
             system_program: self
@@ -151,8 +151,8 @@ impl CreateBuilder {
     }
 }
 
-/// `create` CPI accounts.
-pub struct CreateCpiAccounts<'a, 'b> {
+/// `create_tree` CPI accounts.
+pub struct CreateTreeCpiAccounts<'a, 'b> {
     /// The account paying for the storage fees
     pub payer: &'b solana_program::account_info::AccountInfo<'a>,
     /// The address of the new account
@@ -163,8 +163,8 @@ pub struct CreateCpiAccounts<'a, 'b> {
     pub sysvar_rent: &'b solana_program::account_info::AccountInfo<'a>,
 }
 
-/// `create` CPI instruction.
-pub struct CreateCpi<'a, 'b> {
+/// `create_tree` CPI instruction.
+pub struct CreateTreeCpi<'a, 'b> {
     /// The program to invoke.
     pub __program: &'b solana_program::account_info::AccountInfo<'a>,
     /// The account paying for the storage fees
@@ -177,10 +177,10 @@ pub struct CreateCpi<'a, 'b> {
     pub sysvar_rent: &'b solana_program::account_info::AccountInfo<'a>,
 }
 
-impl<'a, 'b> CreateCpi<'a, 'b> {
+impl<'a, 'b> CreateTreeCpi<'a, 'b> {
     pub fn new(
         program: &'b solana_program::account_info::AccountInfo<'a>,
-        accounts: CreateCpiAccounts<'a, 'b>,
+        accounts: CreateTreeCpiAccounts<'a, 'b>,
     ) -> Self {
         Self {
             __program: program,
@@ -247,7 +247,7 @@ impl<'a, 'b> CreateCpi<'a, 'b> {
                 is_writable: remaining_account.2,
             })
         });
-        let data = CreateInstructionData::new().try_to_vec().unwrap();
+        let data = CreateTreeInstructionData::new().try_to_vec().unwrap();
 
         let instruction = solana_program::instruction::Instruction {
             program_id: crate::MERKLE_TREE_STORAGE_ID,
@@ -272,7 +272,7 @@ impl<'a, 'b> CreateCpi<'a, 'b> {
     }
 }
 
-/// Instruction builder for `Create` via CPI.
+/// Instruction builder for `CreateTree` via CPI.
 ///
 /// ### Accounts:
 ///
@@ -280,13 +280,13 @@ impl<'a, 'b> CreateCpi<'a, 'b> {
 ///   1. `[writable]` tree
 ///   2. `[]` system_program
 ///   3. `[]` sysvar_rent
-pub struct CreateCpiBuilder<'a, 'b> {
-    instruction: Box<CreateCpiBuilderInstruction<'a, 'b>>,
+pub struct CreateTreeCpiBuilder<'a, 'b> {
+    instruction: Box<CreateTreeCpiBuilderInstruction<'a, 'b>>,
 }
 
-impl<'a, 'b> CreateCpiBuilder<'a, 'b> {
+impl<'a, 'b> CreateTreeCpiBuilder<'a, 'b> {
     pub fn new(program: &'b solana_program::account_info::AccountInfo<'a>) -> Self {
-        let instruction = Box::new(CreateCpiBuilderInstruction {
+        let instruction = Box::new(CreateTreeCpiBuilderInstruction {
             __program: program,
             payer: None,
             tree: None,
@@ -367,7 +367,7 @@ impl<'a, 'b> CreateCpiBuilder<'a, 'b> {
         &self,
         signers_seeds: &[&[&[u8]]],
     ) -> solana_program::entrypoint::ProgramResult {
-        let instruction = CreateCpi {
+        let instruction = CreateTreeCpi {
             __program: self.instruction.__program,
 
             payer: self.instruction.payer.expect("payer is not set"),
@@ -391,7 +391,7 @@ impl<'a, 'b> CreateCpiBuilder<'a, 'b> {
     }
 }
 
-struct CreateCpiBuilderInstruction<'a, 'b> {
+struct CreateTreeCpiBuilderInstruction<'a, 'b> {
     __program: &'b solana_program::account_info::AccountInfo<'a>,
     payer: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     tree: Option<&'b solana_program::account_info::AccountInfo<'a>>,

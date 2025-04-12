@@ -8,7 +8,7 @@ use solana_program::{
 use hex;
 
 use crate::error::MerkleTreeStorageError;
-use crate::instruction::accounts::{CreateAccounts, InsertLeafAccounts};
+use crate::instruction::accounts::{CreateTreeAccounts, InsertLeafAccounts};
 use crate::instruction::{InsertLeafArgs, MerkleTreeInstruction};
 use crate::state::MerkleTree;
 
@@ -20,9 +20,9 @@ pub fn process_instruction<'a>(
     let instruction: MerkleTreeInstruction =
         MerkleTreeInstruction::try_from_slice(instruction_data)?;
     match instruction {
-        MerkleTreeInstruction::Create() => {
-            msg!("Instruction: Create");
-            create(program_id, accounts)
+        MerkleTreeInstruction::CreateTree() => {
+            msg!("Instruction: CreateTree");
+            create_tree(program_id, accounts)
         },
         MerkleTreeInstruction::InsertLeaf(insert_leaf_args) => {
             msg!("Instruction: InsertLeaf");
@@ -58,9 +58,9 @@ fn insert_leaf<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>], insert_
     Ok(())
 }
 
-fn create<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>]) -> ProgramResult {
+fn create_tree<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>]) -> ProgramResult {
     // Accounts.
-    let ctx = CreateAccounts::context(accounts)?;
+    let ctx = CreateTreeAccounts::context(accounts)?;
     let rent = Rent::get()?;
 
     // Guards.
@@ -84,7 +84,7 @@ fn create<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>]) -> ProgramRe
             ctx.accounts.tree.key,
             lamports,
             space as u64,
-            &crate::id(),
+            program_id,
         ),
         &[
             ctx.accounts.payer.clone(),

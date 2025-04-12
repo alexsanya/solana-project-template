@@ -9,7 +9,7 @@ pub enum MerkleTreeInstruction {
     #[account(1, writable, name="tree", desc = "The address of the new account")]
     #[account(2, name="system_program", desc="The system program")]
     #[account(3, name="sysvar_rent", desc="Sysvar rent account")]
-    Create(),
+    CreateTree(),
 
     /// Insert Leaf
     #[account(0, writable, signer, name="payer", desc = "The account paying for the storage fees")]

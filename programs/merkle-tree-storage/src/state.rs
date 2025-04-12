@@ -51,7 +51,7 @@ impl MerkleTree {
             let left = self.nodes[2 * parent + 1];
             let right = self.nodes[2 * parent + 2];
 
-            self.nodes[parent] = hashv(&[left.as_slice(), right.as_slice()]).to_bytes();
+            self.nodes[parent] = hashv(&[&left, &right]).to_bytes();
 
             current = parent;
         }

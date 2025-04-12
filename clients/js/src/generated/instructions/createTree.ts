@@ -7,7 +7,6 @@
  */
 
 import {
-  ACCOUNT_HEADER_SIZE,
   Context,
   Pda,
   PublicKey,
@@ -22,7 +21,6 @@ import {
   struct,
   u8,
 } from '@metaplex-foundation/umi/serializers';
-import { getMyAccountSize } from '../accounts';
 import {
   ResolvedAccount,
   ResolvedAccountsWithIndices,
@@ -30,7 +28,7 @@ import {
 } from '../shared';
 
 // Accounts.
-export type CreateInstructionAccounts = {
+export type CreateTreeInstructionAccounts = {
   /** The account paying for the storage fees */
   payer?: Signer;
   /** The address of the new account */
@@ -42,26 +40,30 @@ export type CreateInstructionAccounts = {
 };
 
 // Data.
-export type CreateInstructionData = { discriminator: number };
+export type CreateTreeInstructionData = { discriminator: number };
 
-export type CreateInstructionDataArgs = {};
+export type CreateTreeInstructionDataArgs = {};
 
-export function getCreateInstructionDataSerializer(): Serializer<
-  CreateInstructionDataArgs,
-  CreateInstructionData
+export function getCreateTreeInstructionDataSerializer(): Serializer<
+  CreateTreeInstructionDataArgs,
+  CreateTreeInstructionData
 > {
-  return mapSerializer<CreateInstructionDataArgs, any, CreateInstructionData>(
-    struct<CreateInstructionData>([['discriminator', u8()]], {
-      description: 'CreateInstructionData',
+  return mapSerializer<
+    CreateTreeInstructionDataArgs,
+    any,
+    CreateTreeInstructionData
+  >(
+    struct<CreateTreeInstructionData>([['discriminator', u8()]], {
+      description: 'CreateTreeInstructionData',
     }),
     (value) => ({ ...value, discriminator: 0 })
-  ) as Serializer<CreateInstructionDataArgs, CreateInstructionData>;
+  ) as Serializer<CreateTreeInstructionDataArgs, CreateTreeInstructionData>;
 }
 
 // Instruction.
-export function create(
+export function createTree(
   context: Pick<Context, 'payer' | 'programs'>,
-  input: CreateInstructionAccounts
+  input: CreateTreeInstructionAccounts
 ): TransactionBuilder {
   // Program ID.
   const programId = context.programs.getPublicKey(
@@ -119,10 +121,10 @@ export function create(
   );
 
   // Data.
-  const data = getCreateInstructionDataSerializer().serialize({});
+  const data = getCreateTreeInstructionDataSerializer().serialize({});
 
   // Bytes Created On Chain.
-  const bytesCreatedOnChain = getMyAccountSize() + ACCOUNT_HEADER_SIZE;
+  const bytesCreatedOnChain = 0;
 
   return transactionBuilder([
     { instruction: { keys, programId, data }, signers, bytesCreatedOnChain },

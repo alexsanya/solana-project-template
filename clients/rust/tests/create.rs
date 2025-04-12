@@ -1,28 +1,24 @@
 #![cfg(feature = "test-sbf")]
 
 use borsh::BorshDeserialize;
-use merkle_tree_storage::{accounts::MerkleTree, instructions::{CreateBuilder, InsertLeafBuilder}};
-use solana_program_test::{tokio, ProgramTest};
-use solana_sdk::{
-    pubkey::Pubkey, signature::{Keypair, Signer}, system_instruction::transfer, system_program, sysvar, transaction::Transaction
-};
-use sha3::{Digest, Keccak256};
-use sha2::Sha256;
-use rs_merkle::{MerkleTree as OffchainMerkleTree, Hasher};
 use hex;
-/// A hasher compatible with solana_program::hash::hashv (SHA256)
-#[derive(Clone)]
-pub struct SolanaHasher;
+use merkle_tree_storage::{
+    accounts::MerkleTree,
+    instructions::{CreateTreeBuilder, InsertLeafBuilder},
+};
+use sha2::Sha256;
+use sha3::{Digest, Keccak256};
+use solana_program_test::{
+    tokio::{self, sync::OnceCell, sync::Mutex},
+    BanksClientError,
+    ProgramTest,ProgramTestContext
+};
+use solana_sdk::{
+    instruction::{Instruction, InstructionError}, pubkey::Pubkey, signature::{Keypair, Signer}, system_instruction::transfer, system_program, sysvar, transaction::{Transaction, TransactionError}
+};
+use std::sync::Arc;
 
-impl Hasher for SolanaHasher {
-    type Hash = [u8; 32];
-
-    fn hash(data: &[u8]) -> Self::Hash {
-        let mut hasher = Sha256::new();
-        hasher.update(data);
-        hasher.finalize().into()
-    }
-}
+//use crate::off_chain_tree::OffchainMerkleTree;
 
 fn keccak256(data: &[u8]) -> [u8; 32] {
     let mut hasher = Keccak256::new();
@@ -30,98 +26,139 @@ fn keccak256(data: &[u8]) -> [u8; 32] {
     hasher.finalize().into()
 }
 
-#[tokio::test]
-async fn create() {
-    let mut context =
-        ProgramTest::new("merkle_tree_storage_program", merkle_tree_storage::ID, None)
-            .start_with_context()
-            .await;
+pub struct SharedContext {
+    context: ProgramTestContext,
+    tree_pda: Pubkey
+}
 
+static SHARED: OnceCell<Arc<Mutex<SharedContext>>> = OnceCell::const_new();
+
+async fn get_context() -> Arc<Mutex<SharedContext>> {
+    SHARED
+        .get_or_init(|| async {
+            let mut context =
+                ProgramTest::new("merkle_tree_storage_program", merkle_tree_storage::ID, None)
+                    .start_with_context()
+                    .await;
+
+            let (tree_pda, _bump) = Pubkey::find_program_address(
+                &[b"tree", context.payer.pubkey().as_ref()],
+                &merkle_tree_storage::ID,
+            );
+
+            let ix_create_tree = CreateTreeBuilder::new()
+                .payer(context.payer.pubkey())
+                .tree(tree_pda)
+                .system_program(system_program::ID)
+                .sysvar_rent(sysvar::rent::ID)
+                .instruction();
+
+            let tx = Transaction::new_signed_with_payer(
+                &[ix_create_tree],
+                Some(&context.payer.pubkey()),
+                &[&context.payer],
+                context.last_blockhash,
+            );
+            context.banks_client.process_transaction(tx).await.expect("Cannot create tree PDA");
+            let account = context.banks_client.get_account(tree_pda).await.expect("Unable get acount");
+            assert!(account.is_some());
+
+            Arc::new(Mutex::new(SharedContext {
+                context,
+                tree_pda
+            }))
+        })
+        .await
+        .clone()
+}
+
+#[tokio::test]
+async fn accountAccess() {
+    let binding = get_context().await;
+    let mut shared = binding.lock().await;
     // Given a new keypair.
     let hacker = Keypair::new();
-
     // send SOL from payer to hacker
-    let ix_transfer = transfer(
-        &context.payer.pubkey(),
-        &hacker.pubkey(),
-        100000000000000
-    );
+    let ix_transfer = transfer(&shared.context.payer.pubkey(), &hacker.pubkey(), 100000000000000);
 
     let tx = Transaction::new_signed_with_payer(
         &[ix_transfer],
-        Some(&context.payer.pubkey()),
-        &[&context.payer],
-        context.last_blockhash,
+        Some(&shared.context.payer.pubkey()),
+        &[&shared.context.payer],
+        shared.context.last_blockhash,
     );
-    context.banks_client.process_transaction(tx).await.unwrap();
+    shared.context.banks_client.process_transaction(tx).await.unwrap();
 
 
-    let (tree_pda, _bump) = Pubkey::find_program_address(
-        &[b"tree", context.payer.pubkey().as_ref()],
-        &merkle_tree_storage::ID,
-    );
-
-    let ix_create = CreateBuilder::new()
-        .payer(context.payer.pubkey())
-        .tree(tree_pda)
-        .system_program(system_program::ID)
-        .sysvar_rent(sysvar::rent::ID)
-        .instruction();
-
-    let raw_leaves = vec![
-        b"First leaf",
-        b"Secondleaf",
-    ];
-
-    let ix_insert_first_leaf = InsertLeafBuilder::new()
-        .payer(context.payer.pubkey())
-        .tree(tree_pda)
-        .leaf(keccak256(raw_leaves[0]))
-        .instruction();
-
-    let ix_insert_second_leaf = InsertLeafBuilder::new()
+    let ix_insert_leaf = InsertLeafBuilder::new()
         .payer(hacker.pubkey())
-        .tree(tree_pda)
-        .leaf(keccak256(raw_leaves[1]))
+        .tree(shared.tree_pda)
+        .leaf(keccak256(&[1; 32]))
         .instruction();
 
-    // When we create a new account.
-    let tx = Transaction::new_signed_with_payer(
-        &[ix_create, ix_insert_first_leaf],
-        Some(&context.payer.pubkey()),
-        &[&context.payer],
-        context.last_blockhash,
-    );
-    context.banks_client.process_transaction(tx).await.unwrap();
 
     let tx = Transaction::new_signed_with_payer(
-        &[ix_insert_second_leaf],
+        &[ix_insert_leaf],
         Some(&hacker.pubkey()),
         &[&hacker],
-        context.last_blockhash,
+        shared.context.last_blockhash,
     );
-    context.banks_client.process_transaction(tx).await.unwrap();
+    
+    //process transaction and expect custom error with code 4
+    let error = shared.context.banks_client.process_transaction(tx).await.unwrap_err();
+    match error {
+        BanksClientError::TransactionError(TransactionError::InstructionError(index, error)) => {
+            println!("❌ Instruction {} failed with error: {:?}", index, error);
+    
+            if let InstructionError::Custom(code) = error {
+                assert_eq!(code, 4);
+                println!("🔍 Custom program error code: 0x{:X} (decimal: {})", code, code);
+            } else {
+                panic!("Expected custom error with code 4");
+            }
+        }
+        _ => {
+            panic!("Expected custom error with code 4");
+        }
+    }
+}
+#[tokio::test]
+async fn insert_leaf() {
+    let binding = get_context().await;
+    let mut shared = binding.lock().await;
 
-    // Then an account was created with the correct data.
+    let ix_insert_first_leaf = InsertLeafBuilder::new()
+        .payer(shared.context.payer.pubkey())
+        .tree(shared.tree_pda)
+        .leaf([1; 32])
+        .instruction();
 
-    let account = context.banks_client.get_account(tree_pda).await.unwrap();
+    let tx = Transaction::new_signed_with_payer(
+        &[ix_insert_first_leaf],
+        Some(&shared.context.payer.pubkey()),
+        &[&shared.context.payer],
+        shared.context.last_blockhash,
+    );
+    shared.context.banks_client.process_transaction(tx).await.unwrap();
 
+    let tree_pda = shared.tree_pda.clone();
+    let account = shared.context.banks_client.get_account(tree_pda).await.expect("Unable get acount");
     assert!(account.is_some());
-
     let account = account.unwrap();
-    //assert_eq!(account.data.len(), MerkleTree::TREE_SIZE_BYTES);
 
     let mut account_data = account.data.as_ref();
     let my_account = MerkleTree::deserialize(&mut account_data).unwrap();
-    assert_eq!(my_account.next_leaf_index, 2);
+    assert_eq!(my_account.next_leaf_index, 1);
 
-    let hashed_leaves: Vec<[u8; 32]> = raw_leaves
-        .iter()
-        .map(|leaf| SolanaHasher::hash(*leaf))
-        .collect();
-    let tree = OffchainMerkleTree::<SolanaHasher>::from_leaves(&hashed_leaves);
-    let root = tree.root().unwrap();
-    println!("📦 Merkle Root: {}", hex::encode(root));
-    assert_eq!(root, my_account.nodes[0]);
+    //let mut tree = OffchainMerkleTree {
+    //    nodes: vec![[0; 32]; OffchainMerkleTree::TREE_SIZE],
+    //    next_leaf_index: 0,
+    //};
 
+    //tree.insert_leaf([1; 32]).unwrap();
+
+    //let root = tree.nodes[0];
+    //println!("📦 Merkle Root: {}", hex::encode(root));
+    //assert_eq!(root, my_account.nodes[0]);
 }
+

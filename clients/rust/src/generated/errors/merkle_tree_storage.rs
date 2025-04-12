@@ -19,6 +19,15 @@ pub enum MerkleTreeStorageError {
     /// 2 (0x2) - Error serializing account
     #[error("Error serializing account")]
     SerializationError,
+    /// 3 (0x3) - Tree overflow
+    #[error("Tree overflow")]
+    TreeOverflow,
+    /// 4 (0x4) - Invalid PDA
+    #[error("Invalid PDA")]
+    InvalidPDA,
+    /// 5 (0x5) - Payer must be a signer
+    #[error("Payer must be a signer")]
+    PayerMustBeSigner,
 }
 
 impl solana_program::program_error::PrintProgramError for MerkleTreeStorageError {

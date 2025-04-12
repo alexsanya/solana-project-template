@@ -3,7 +3,7 @@
   "name": "merkle_tree_storage_program",
   "instructions": [
     {
-      "name": "Create",
+      "name": "CreateTree",
       "accounts": [
         {
           "name": "payer",
@@ -137,6 +137,21 @@
       "code": 2,
       "name": "SerializationError",
       "msg": "Error serializing account"
+    },
+    {
+      "code": 3,
+      "name": "TreeOverflow",
+      "msg": "Tree overflow"
+    },
+    {
+      "code": 4,
+      "name": "InvalidPDA",
+      "msg": "Invalid PDA"
+    },
+    {
+      "code": 5,
+      "name": "PayerMustBeSigner",
+      "msg": "Payer must be a signer"
     }
   ],
   "metadata": {

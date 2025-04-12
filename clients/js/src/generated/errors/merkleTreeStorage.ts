@@ -54,6 +54,45 @@ export class SerializationErrorError extends ProgramError {
 codeToErrorMap.set(0x2, SerializationErrorError);
 nameToErrorMap.set('SerializationError', SerializationErrorError);
 
+/** TreeOverflow: Tree overflow */
+export class TreeOverflowError extends ProgramError {
+  override readonly name: string = 'TreeOverflow';
+
+  readonly code: number = 0x3; // 3
+
+  constructor(program: Program, cause?: Error) {
+    super('Tree overflow', program, cause);
+  }
+}
+codeToErrorMap.set(0x3, TreeOverflowError);
+nameToErrorMap.set('TreeOverflow', TreeOverflowError);
+
+/** InvalidPDA: Invalid PDA */
+export class InvalidPDAError extends ProgramError {
+  override readonly name: string = 'InvalidPDA';
+
+  readonly code: number = 0x4; // 4
+
+  constructor(program: Program, cause?: Error) {
+    super('Invalid PDA', program, cause);
+  }
+}
+codeToErrorMap.set(0x4, InvalidPDAError);
+nameToErrorMap.set('InvalidPDA', InvalidPDAError);
+
+/** PayerMustBeSigner: Payer must be a signer */
+export class PayerMustBeSignerError extends ProgramError {
+  override readonly name: string = 'PayerMustBeSigner';
+
+  readonly code: number = 0x5; // 5
+
+  constructor(program: Program, cause?: Error) {
+    super('Payer must be a signer', program, cause);
+  }
+}
+codeToErrorMap.set(0x5, PayerMustBeSignerError);
+nameToErrorMap.set('PayerMustBeSigner', PayerMustBeSignerError);
+
 /**
  * Attempts to resolve a custom program error from the provided error code.
  * @category Errors
