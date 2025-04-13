@@ -18,14 +18,13 @@ pub fn process_instruction<'a>(
     instruction_data: &[u8],
 ) -> ProgramResult {
     let instruction: MerkleTreeInstruction =
-        MerkleTreeInstruction::try_from_slice(instruction_data)?;
+        MerkleTreeInstruction::try_from_slice(instruction_data)
+            .map_err(|_| ProgramError::InvalidArgument)?;
     match instruction {
         MerkleTreeInstruction::CreateTree(create_tree_args) => {
-            msg!("Instruction: CreateTree");
             create_tree(program_id, accounts, create_tree_args)
         },
         MerkleTreeInstruction::InsertLeaf(insert_leaf_args) => {
-            msg!("Instruction: InsertLeaf");
             insert_leaf(program_id, accounts, insert_leaf_args)
         }
     }
@@ -39,22 +38,22 @@ fn insert_leaf<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>], insert_
         program_id,
     );
     if &expected_pda != ctx.accounts.tree.key {
-        msg!("Invalid tree account PDA for this payer");
+        msg!("event: error description: PDA {} is not belongs to payer {}", ctx.accounts.tree.key, ctx.accounts.payer.key);
         return Err(MerkleTreeStorageError::InvalidPDA.into());
     }
     if ctx.accounts.tree.owner != program_id {
-        msg!("Invalid tree account owner");
+        msg!("event: error description: tree account owner {} is not program id {}", ctx.accounts.tree.owner, program_id);
         return Err(MerkleTreeStorageError::InvalidPDA.into());
     }
     if !ctx.accounts.payer.is_signer {
-        msg!("Payer must be a signer");
+        msg!("event: error description: payer {} is not a signer", ctx.accounts.payer.key);
         return Err(MerkleTreeStorageError::PayerMustBeSigner.into());
     }
 
     let mut tree = MerkleTree::load(ctx.accounts.tree)?;
     tree.insert_leaf(insert_leaf_args.leaf)?;
     tree.save(ctx.accounts.tree)?;
-    msg!("Leaf inserted. Root: {}", hex::encode(tree.nodes[0]));
+    msg!("event: LeafInserted NewRoot: {}, payer: {}", hex::encode(tree.nodes[0]), ctx.accounts.payer.key);
     Ok(())
 }
 
@@ -73,7 +72,7 @@ fn create_tree<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>], create_
     let lamports: u64 = rent.minimum_balance(space);
     let (expected_pda, bump) = Pubkey::find_program_address(&[b"tree", ctx.accounts.payer.key.as_ref()], program_id);
     if &expected_pda != ctx.accounts.tree.key {
-        msg!("Invalid PDA provided");
+        msg!("event: error description: PDA {} is not belongs to payer {}", ctx.accounts.tree.key, ctx.accounts.payer.key);
         return Err(ProgramError::InvalidArgument);
     }
 
@@ -102,6 +101,6 @@ fn create_tree<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>], create_
 
     tree.save(ctx.accounts.tree)?;
 
-    msg!("Merkle tree PDA initialized");
+    msg!("event:CreateTree user:{} tree:{}", ctx.accounts.payer.key, ctx.accounts.tree.key);
     Ok(())
 }

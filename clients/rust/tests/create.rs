@@ -75,7 +75,7 @@ async fn get_context() -> SharedContext {
 }
 
 #[tokio::test]
-async fn insert_leaf_with_wrong_account() {
+async fn prevent_insert_leaf_to_wrong_account() {
     let mut shared = get_context().await;
     // Given a new keypair.
     let hacker = Keypair::new();

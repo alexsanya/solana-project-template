@@ -19,12 +19,12 @@ pub struct MerkleTree {
 impl MerkleTree {
 
     pub fn get_tree_size(max_depth: u8) -> usize {
-        return (1 << (max_depth + 1)) - 1;
+        (1 << (max_depth + 1)) - 1
     }
 
     pub fn get_tree_size_bytes(max_depth: u8) -> usize {
         let tree_size = Self::get_tree_size(max_depth);
-        return 8 + tree_size * 32 + 2; // 8 bytes for vec length + bytes for all nodes + 1 byte for next_leaf_index + 1 byte for max_depth
+        8 + tree_size * 32 + 2 // 8 bytes for vec length + bytes for all nodes + 1 byte for next_leaf_index + 1 byte for max_depth
     }
 
     pub fn load(account: &AccountInfo) -> Result<Self, ProgramError> {
@@ -45,7 +45,7 @@ impl MerkleTree {
     pub fn insert_leaf(&mut self, leaf: [u8; 32]) -> Result<(), MerkleTreeStorageError> {
         let leaf_pos = (1 << self.max_depth) - 1 + self.next_leaf_index as usize;
         if leaf_pos >= Self::get_tree_size(self.max_depth) {
-            msg!("Tree is full");
+            msg!("event: error description: tree is full");
             return Err(MerkleTreeStorageError::TreeOverflow);
         }
 
