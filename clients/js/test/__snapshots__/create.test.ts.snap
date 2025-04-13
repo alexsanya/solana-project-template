@@ -1,0 +1,8 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Merkle tree program Insert leaf 1`] = `
+[
+  "Program log: event:CreateTree address:HuYk7PA3TBzDsgdRsxpKhxzEcB1L9o3dHNNFcaYNEfs1",
+  "Program log: event:LeafInserted NewRoot: 8dd037fbec59096df37b2b042da35ba594c511cf1d760a9b98a99be1946c3d24",
+]
+`;

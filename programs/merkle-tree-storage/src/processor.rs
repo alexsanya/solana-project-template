@@ -53,7 +53,7 @@ fn insert_leaf<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>], insert_
     let mut tree = MerkleTree::load(ctx.accounts.tree)?;
     tree.insert_leaf(insert_leaf_args.leaf)?;
     tree.save(ctx.accounts.tree)?;
-    msg!("event: LeafInserted NewRoot: {}, payer: {}", hex::encode(tree.nodes[0]), ctx.accounts.payer.key);
+    msg!("event:LeafInserted NewRoot: {}", hex::encode(tree.nodes[0]));
     Ok(())
 }
 
@@ -101,6 +101,6 @@ fn create_tree<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>], create_
 
     tree.save(ctx.accounts.tree)?;
 
-    msg!("event:CreateTree user:{} tree:{}", ctx.accounts.payer.key, ctx.accounts.tree.key);
+    msg!("event:CreateTree address:{}", ctx.accounts.tree.key);
     Ok(())
 }
