@@ -1,19 +1,13 @@
-# Merkle Tree Storage
+## Overview
 
-On-chain implementation of Merkle Tree
+Your task is to implement a **Solana program** that includes basic operations for a **Merkle tree**. The program should support:
 
-## Building
+1. **Inserting a leaf node** into the Merkle tree.
+2. **Emitting an event message** with the updated Merkle tree root after each insertion.
 
-This will build the program and output a `.so` file in a non-comitted `target/deploy` directory which is used by the `config/shank.cjs` configuration file to start a new local validator with the latest changes on the program.
+This assignment is designed to test your understanding of:
 
-```sh
-cargo build-bpf
-```
-
-## Testing
-
-You may run the following command to build the program and run its Rust tests.
-
-```sh
-cargo test-bpf
-```
+- Rust programming in the context of the Solana blockchain.
+- Efficient state handling and serialization/deserialization.
+- Hashing and binary tree concepts (Merkle tree).
+- Solana-specific mechanisms for logging and events.
